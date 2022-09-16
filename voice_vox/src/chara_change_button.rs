@@ -91,69 +91,59 @@ impl CharaChangeButton {
         let style_id_mapping = STYLE_ID_AND_CHARA_TABLE.get()?;
         let current_character = style_id_mapping.get(&self.0)?;
         let image_ref = image.get(current_character)?;
-        ui.menu_image_button(
-            &current_character.0,
-            image_ref.texture_id(ctx),
-            egui::vec2(32.0, 32.0),
-            |ui| {
-                for (character, styles) in style_structure {
-                    if let Some((default_style, speaker)) = styles.get(0) {
-                        if let Some(default_icon) =
-                            image.get(&(character.clone(), default_style.clone()))
-                        {
-                            let default_style_button = egui::Button::image_and_text(
-                                default_icon.texture_id(ctx),
-                                egui::epaint::vec2(32.0, 32.0),
-                                character,
-                            );
+        ui.menu_button(&current_character.0, |ui| {
+            for (character, styles) in style_structure {
+                if let Some((default_style, speaker)) = styles.get(0) {
+                    if let Some(default_icon) =
+                        image.get(&(character.clone(), default_style.clone()))
+                    {
+                        let default_style_button = egui::Button::image_and_text(
+                            default_icon.texture_id(ctx),
+                            egui::epaint::vec2(32.0, 32.0),
+                            character,
+                        );
 
-                            if styles.len() > 1 {
-                                if ui
-                                    .menu_button_with_image(
-                                        character,
-                                        default_icon.texture_id(ctx),
-                                        egui::vec2(32.0, 32.0),
-                                        |ui| {
-                                            for (style, speaker) in styles {
-                                                if let Some(style_icon) =
-                                                    image.get(&(character.clone(), style.clone()))
-                                                {
-                                                    let style_button = egui::Button::image_and_text(
-                                                        style_icon.texture_id(ctx),
-                                                        egui::epaint::vec2(32.0, 32.0),
-                                                        format!("{}({})", character, style),
-                                                    );
-                                                    if ui.add(style_button).clicked() {
-                                                        rt = Some(CharaChangeCommand {
-                                                            prev_chara: self.0,
-                                                            new_chara: *speaker,
-                                                        });
-                                                    }
-                                                }
+                        if styles.len() > 1 {
+                            if ui
+                                .menu_button(character, |ui| {
+                                    for (style, speaker) in styles {
+                                        if let Some(style_icon) =
+                                            image.get(&(character.clone(), style.clone()))
+                                        {
+                                            let style_button = egui::Button::image_and_text(
+                                                style_icon.texture_id(ctx),
+                                                egui::epaint::vec2(32.0, 32.0),
+                                                format!("{}({})", character, style),
+                                            );
+                                            if ui.add(style_button).clicked() {
+                                                rt = Some(CharaChangeCommand {
+                                                    prev_chara: self.0,
+                                                    new_chara: *speaker,
+                                                });
                                             }
-                                        },
-                                    )
-                                    .response
-                                    .clicked()
-                                {
-                                    rt = Some(CharaChangeCommand {
-                                        prev_chara: self.0,
-                                        new_chara: *speaker,
-                                    });
-                                }
-                            } else {
-                                if ui.add(default_style_button).clicked() {
-                                    rt = Some(CharaChangeCommand {
-                                        prev_chara: self.0,
-                                        new_chara: *speaker,
-                                    });
-                                }
+                                        }
+                                    }
+                                })
+                                .response
+                                .clicked()
+                            {
+                                rt = Some(CharaChangeCommand {
+                                    prev_chara: self.0,
+                                    new_chara: *speaker,
+                                });
+                            }
+                        } else {
+                            if ui.add(default_style_button).clicked() {
+                                rt = Some(CharaChangeCommand {
+                                    prev_chara: self.0,
+                                    new_chara: *speaker,
+                                });
                             }
                         }
                     }
                 }
-            },
-        );
+            }
+        });
         rt.and_then(|rt| {
             if rt.new_chara == rt.prev_chara {
                 None

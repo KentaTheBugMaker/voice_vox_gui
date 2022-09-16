@@ -1,7 +1,11 @@
 use crate::commands::BottomPaneCommand;
 
-use eframe::egui::{
-    Align, Align2, FontId, Layout, NumExt, Response, SelectableLabel, TextStyle, Ui, Vec2, Widget,
+use eframe::{
+    egui::{
+        Align, Align2, Context, FontId, Layout, NumExt, Response, SelectableLabel, Sense,
+        TextStyle, Ui, Vec2, Widget,
+    },
+    epaint::{self, pos2, vec2, Color32, Rect, RectShape, Rounding, Stroke},
 };
 use std::ops::RangeInclusive;
 use voice_vox_api::api_schema::AccentPhraseInProject;
@@ -22,7 +26,6 @@ pub fn create_bottom_pane(
 ) -> Option<BottomPaneCommand> {
     let mut rt = None;
     ui.horizontal(|ui| {
-        use eframe::egui::{vec2, Color32, Rounding, Sense, Stroke};
         use Displaying::*;
 
         let radius = 32.0;
@@ -162,7 +165,6 @@ pub fn create_bottom_pane(
                                         //
                                         let mut graph_pos = bottom - text_height;
 
-                                        use eframe::egui::pos2;
                                         let mut line_points = vec![];
                                         let width_per_mora = (w - radius * 2.0)
                                             / ((edit_target.moras.len() - 1) as f32);
@@ -195,7 +197,7 @@ pub fn create_bottom_pane(
                                                 Align2::LEFT_TOP,
                                                 &mora.text,
                                                 FontId::default(),
-                                                Color32::BLACK,
+                                                Color32::LIGHT_GRAY,
                                             );
                                             if idx + 1 == accent as usize {
                                                 graph_pos = top;
@@ -206,11 +208,10 @@ pub fn create_bottom_pane(
                                             }
                                             line_points.push(pos2(left + x + radius, graph_pos));
                                         }
-                                        use eframe::egui::epaint;
                                         use epaint::Shape;
                                         let shape = Shape::line(
                                             line_points,
-                                            Stroke::new(2.0, Color32::BLACK),
+                                            Stroke::new(2.0, Color32::LIGHT_GRAY),
                                         );
 
                                         painter.add(shape);
@@ -271,6 +272,7 @@ pub fn create_bottom_pane(
                     Displaying::Length => {
                         let accent_phrase_len = edit_targets.len();
                         if !edit_targets.is_empty() {
+                            println!("space.y {}", space.y);
                             ui.horizontal(|ui| {
                                 for (ap, edit_target) in edit_targets.iter().enumerate() {
                                     let mora_len = edit_target.moras.len();
@@ -364,128 +366,74 @@ pub struct TwoNotchSlider<'a> {
 }
 
 impl<'a> TwoNotchSlider<'a> {
-    fn slider_ui(self, ui: &mut Ui) -> Response {
-        use eframe::egui;
-        use egui::epaint::{pos2, vec2, Color32, Rect, Stroke};
-        use egui::Sense;
-        let width_of_rail = 8.0;
-
-        let height = ui.available_height();
-
-        let (_id, rect) = ui.allocate_space(vec2(width_of_rail * 2.0, ui.available_height()));
-        let origin = rect.min;
-
-        let res_left = ui.allocate_rect(
-            Rect::from_min_max(origin, origin + vec2(width_of_rail, height)),
-            Sense::click_and_drag(),
-        );
-
-        let painter = ui.painter_at(rect);
-        painter.vline(
-            origin.x + width_of_rail,
-            origin.y..=origin.y + height,
-            Stroke::new(width_of_rail, Color32::LIGHT_GRAY),
-        );
-
-        let bottom = origin.y + height;
-
-        let width_of_range = *self.range.end() - *self.range.start();
-
-        let a = if let Some(pos) = res_left.interact_pointer_pos() {
-            let cursor_pos = pos.y;
-            let x = bottom - cursor_pos;
-            let scale = x / height;
-            egui::lerp(self.range.clone(), scale)
-        } else {
-            *self.a
-        };
-
-        let a_diff_from_start = a - *self.range.start();
-        let a_points_from_bottom = (a_diff_from_start / width_of_range) * height;
-        let center = pos2(origin.x + width_of_rail, bottom - a_points_from_bottom);
-
-        let thickness = ui
+    /// just slider space no text.
+    fn allocate_slider_space(&self, ui: &mut Ui) -> (Response, Rect, Response) {
+        let slider_width = ui.spacing().slider_width;
+        let rail_width = ui
             .text_style_height(&TextStyle::Body)
-            .at_least(ui.spacing().interact_size.y);
-        let radius = thickness / 2.5;
-
-        let (left, right) = HALF_CIRCLE.get_or_init(|| {
-            use eframe::epaint::Shape;
-            // - pi/2 -> pi/2
-            let offset = -std::f32::consts::FRAC_PI_2;
-            let unit_angle = std::f32::consts::TAU / 24.0;
-
-            let right = (0..=12).into_iter().map(|x| {
-                let phase = x as f32 * unit_angle + offset;
-                let (sin, cos) = phase.sin_cos();
-                pos2(cos * radius, sin * radius)
+            .at_least(ui.spacing().interact_size.y)
+            / 3.0;
+        let desired_size = vec2(rail_width, slider_width);
+        ui.with_layout(eframe::egui::Layout::left_to_right(Align::Min), |ui| {
+            let left = ui.allocate_response(desired_size, Sense::click_and_drag());
+            let center_rail_rect = left.rect.translate(vec2(rail_width, 0.0));
+            ui.painter().add(RectShape {
+                rect: center_rail_rect,
+                rounding: ui.visuals().widgets.inactive.rounding,
+                fill: Color32::LIGHT_GRAY,
+                stroke: Stroke::default(),
             });
-            let left = (12..=24).into_iter().map(|x| {
-                let phase = x as f32 * unit_angle + offset;
-                let (sin, cos) = phase.sin_cos();
-                pos2(cos * radius, sin * radius)
-            });
-            let right = Shape::convex_polygon(
-                right.collect(),
-                Color32::LIGHT_GRAY,
-                Stroke::new(1.0, Color32::BLACK),
-            );
-            let left = Shape::convex_polygon(
-                left.collect(),
-                Color32::LIGHT_GRAY,
-                Stroke::new(1.0, Color32::BLACK),
-            );
-            (left, right)
+            let right = ui.allocate_response(desired_size, Sense::click_and_drag());
+            (left, center_rail_rect, right)
+        })
+        .inner
+    }
+    fn slider_ui(self, ui: &mut Ui) -> Response {
+        let response = self.allocate_slider_space(ui);
+        let res_left = response.0;
+        let res_right = response.2;
+
+        let notch = self.notch(&response.1);
+        ui.painter().add(epaint::RectShape {
+            rect: notch.0,
+            rounding: Rounding::none(),
+            fill: Color32::BLUE,
+            stroke: Stroke::default(),
+        });
+        ui.painter().add(epaint::RectShape {
+            rect: notch.1,
+            rounding: Rounding::none(),
+            fill: Color32::BLUE,
+            stroke: Stroke::default(),
         });
 
-        let mut left = left.clone();
-        left.translate(center.to_vec2());
-        if res_left.hovered() {
-            painter.circle_filled(center, radius * 1.4, Color32::LIGHT_GREEN);
-        }
-        painter.add(left);
-
-        let mut right = right.clone();
-
-        let right_origin = origin + vec2(width_of_rail, 0.0);
-        let res_right = ui.allocate_rect(
-            Rect::from_min_max(right_origin, right_origin + vec2(width_of_rail, height)),
-            Sense::click_and_drag(),
-        );
-
-        let b = if let Some(pos) = res_right.interact_pointer_pos() {
-            let cursor_pos = pos.y;
-            let x = bottom - cursor_pos;
-            let scale = x / height;
-            egui::lerp(self.range.clone(), scale)
-        } else {
-            *self.b
-        };
-
-        let b_diff_from_start = b - *self.range.start();
-        let b_points_from_bottom = (b_diff_from_start / width_of_range) * height;
-        let center = pos2(origin.x + width_of_rail, bottom - b_points_from_bottom);
-        right.translate(center.to_vec2());
-        if res_right.hovered() {
-            painter.circle_filled(center, radius * 1.4, Color32::LIGHT_GREEN);
-        }
-        painter.add(right);
-        *self.a = f32::clamp(a, *self.range.start(), *self.range.end());
-        *self.b = f32::clamp(b, *self.range.start(), *self.range.end());
         res_left.union(res_right)
     }
-}
+    // returns each notch rect ready to paint.
+    fn notch(&self, rail_rect: &Rect) -> (Rect, Rect) {
+        let notch_size = rail_rect.width();
+        let height = rail_rect.height();
+        let a = (*self.a - self.range.start()) / (self.range.end() - self.range.start());
+        let b = (*self.b - self.range.start()) / (self.range.end() - self.range.start());
+        let a = height - a * height;
+        let b = height - b * height;
 
-static HALF_CIRCLE: once_cell::sync::OnceCell<(eframe::epaint::Shape, eframe::epaint::Shape)> =
-    once_cell::sync::OnceCell::new();
+        let a_center_x = rail_rect.left() - 0.75 * notch_size;
+        let b_center_y = rail_rect.right() + 0.75 * notch_size;
+        let a_center = pos2(a_center_x, rail_rect.top() + a);
+        let b_center = pos2(b_center_y, rail_rect.top() + b);
+        let size = vec2(notch_size * 2.0, notch_size * 2.0);
+        let a_rect = Rect::from_center_size(a_center, size);
+        let b_rect = Rect::from_center_size(b_center, size);
+        (a_rect, b_rect)
+    }
+}
 
 impl<'a> Widget for TwoNotchSlider<'a> {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
             ui.label(&self.text);
-            {
-                self.slider_ui(ui)
-            }
+            self.slider_ui(ui)
         })
         .inner
     }

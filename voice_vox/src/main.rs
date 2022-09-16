@@ -555,27 +555,32 @@ impl eframe::App for VoiceVoxRust {
                                     let exit =
                                         egui::Button::new(egui::RichText::new("X").size(28.0))
                                             .fill(Color32::TRANSPARENT);
-                                    ui.with_layout(Layout::right_to_left(), |ui| {
-                                        if ui.add(exit).clicked() {
-                                            if self.tool_bar_config != self.tool_bar_config_editing
+                                    ui.with_layout(
+                                        Layout::right_to_left(eframe::emath::Align::Center),
+                                        |ui| {
+                                            if ui.add(exit).clicked() {
+                                                if self.tool_bar_config
+                                                    != self.tool_bar_config_editing
+                                                {
+                                                    self.opening_dialogues =
+                                                        Some(DialogueKind::ExitCustomize);
+                                                } else {
+                                                    self.block_menu_control = false;
+                                                    self.current_view = CurrentView::Main;
+                                                }
+                                            }
+
+                                            if ui.add_enabled(changed, save_config).clicked() {
+                                                self.tool_bar_config =
+                                                    self.tool_bar_config_editing.clone();
+                                            }
+                                            if ui.add_enabled(is_default, restore_default).clicked()
                                             {
                                                 self.opening_dialogues =
-                                                    Some(DialogueKind::ExitCustomize);
-                                            } else {
-                                                self.block_menu_control = false;
-                                                self.current_view = CurrentView::Main;
+                                                    Some(DialogueKind::RestoreDefault);
                                             }
-                                        }
-
-                                        if ui.add_enabled(changed, save_config).clicked() {
-                                            self.tool_bar_config =
-                                                self.tool_bar_config_editing.clone();
-                                        }
-                                        if ui.add_enabled(is_default, restore_default).clicked() {
-                                            self.opening_dialogues =
-                                                Some(DialogueKind::RestoreDefault);
-                                        }
-                                    });
+                                        },
+                                    );
                                 });
 
                                 let op = crate::tool_bar::tool_bar(
@@ -620,28 +625,31 @@ impl eframe::App for VoiceVoxRust {
                                         egui::RichText::new("右に動かす").size(28.0),
                                     );
 
-                                    ui.with_layout(Layout::right_to_left(), |ui| {
-                                        if ui
-                                            .button(egui::RichText::new("削除する").size(28.0))
-                                            .clicked()
-                                        {
-                                            self.tool_bar_config_editing.remove(index);
-                                        };
-                                        if ui
-                                            .add_enabled(
-                                                index + 1 != self.tool_bar_config_editing.len(),
-                                                move_right,
-                                            )
-                                            .clicked()
-                                        {
-                                            self.cursoring += 1;
-                                            self.tool_bar_config_editing.swap(index, index + 1);
-                                        }
-                                        if ui.add_enabled(index != 0, move_left).clicked() {
-                                            self.cursoring -= 1;
-                                            self.tool_bar_config_editing.swap(index, index - 1);
-                                        }
-                                    });
+                                    ui.with_layout(
+                                        Layout::right_to_left(eframe::emath::Align::Center),
+                                        |ui| {
+                                            if ui
+                                                .button(egui::RichText::new("削除する").size(28.0))
+                                                .clicked()
+                                            {
+                                                self.tool_bar_config_editing.remove(index);
+                                            };
+                                            if ui
+                                                .add_enabled(
+                                                    index + 1 != self.tool_bar_config_editing.len(),
+                                                    move_right,
+                                                )
+                                                .clicked()
+                                            {
+                                                self.cursoring += 1;
+                                                self.tool_bar_config_editing.swap(index, index + 1);
+                                            }
+                                            if ui.add_enabled(index != 0, move_left).clicked() {
+                                                self.cursoring -= 1;
+                                                self.tool_bar_config_editing.swap(index, index - 1);
+                                            }
+                                        },
+                                    );
                                 });
                             });
                         });

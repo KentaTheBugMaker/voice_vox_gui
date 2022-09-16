@@ -62,27 +62,30 @@ pub fn tool_bar(
         }
 
         if let Some(ops) = split.next() {
-            ui.with_layout(egui::Layout::right_to_left(), |ui| {
-                for op in ops.iter().rev() {
-                    match op {
-                        ToolBarOp::Blank => {}
-                        x => {
-                            if ui
-                                .button(egui::RichText::new(&TOOL_BAR_OPS[x]).size(unit))
-                                .clicked()
-                            {
-                                o = Some(*x)
+            ui.with_layout(
+                egui::Layout::right_to_left(eframe::emath::Align::Center),
+                |ui| {
+                    for op in ops.iter().rev() {
+                        match op {
+                            ToolBarOp::Blank => {}
+                            x => {
+                                if ui
+                                    .button(egui::RichText::new(&TOOL_BAR_OPS[x]).size(unit))
+                                    .clicked()
+                                {
+                                    o = Some(*x)
+                                }
                             }
                         }
                     }
-                }
-                if is_customizing {
-                    let sz = ui.available_size();
-                    if ui.add_sized(sz, egui::Button::new("")).clicked() {
-                        o = Some(ToolBarOp::Blank)
+                    if is_customizing {
+                        let sz = ui.available_size();
+                        if ui.add_sized(sz, egui::Button::new("")).clicked() {
+                            o = Some(ToolBarOp::Blank)
+                        }
                     }
-                }
-            });
+                },
+            );
         }
 
         o

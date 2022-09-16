@@ -60,7 +60,7 @@ impl<'a, 'control, T: Clone + PartialEq> Dialogue<'a, 'control, T> {
                         }
                     }
                     // rtl layout
-                    ui.with_layout(Layout::right_to_left(), |ui| {
+                    ui.with_layout(Layout::right_to_left(eframe::emath::Align::Center), |ui| {
                         if let Some(split) = split.next() {
                             for v in split.iter().rev() {
                                 let v = v.clone();
