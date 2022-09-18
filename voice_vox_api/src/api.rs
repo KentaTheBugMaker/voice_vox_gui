@@ -592,3 +592,27 @@ impl Api for DownloadableLibraries {
         }
     }
 }
+
+pub struct InitializeSpeaker {
+    speaker: i32,
+    core_version: CoreVersion,
+}
+#[async_trait]
+impl Api for InitializeSpeaker {
+    type Response = Result<(), APIError>;
+
+    async fn call(&self) -> Self::Response {
+        let req = client()
+            .get("http://localhost:50021/initialize_speaker")
+            .query(&[("speaker", self.speaker)])
+            .add_core_version(&self.core_version)
+            .build()
+            .unwrap();
+        let res = client().execute(req).await.unwrap();
+        match res.status() {
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::NO_CONTENT => Ok(()),
+            x => Err(x.into()),
+        }
+    }
+}
