@@ -26,7 +26,7 @@ fn client() -> &'static reqwest::Client {
 pub struct AudioQuery {
     pub text: String,
     pub speaker: i32,
-    pub core_version: Option<String>,
+    pub core_version: CoreVersion,
 }
 
 #[async_trait]
@@ -567,5 +567,28 @@ impl Into<APIError> for std::io::Error {
 impl From<StatusCode> for APIError {
     fn from(_: StatusCode) -> Self {
         APIError::Unknown
+    }
+}
+pub struct DownloadableLibraries;
+
+#[async_trait]
+impl Api for DownloadableLibraries {
+    type Response = Result<crate::api_schema::DownloadableLibraries, APIError>;
+
+    async fn call(&self) -> Self::Response {
+        let req = client()
+            .get("http://localhost:50021/downloadble_libraries")
+            .build()
+            .unwrap();
+        let res = client().execute(req).await.unwrap();
+        match res.status() {
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::OK => res
+                .json::<crate::api_schema::DownloadableLibrariesRaw>()
+                .await?
+                .try_into()
+                .map_err(|_| APIError::Io(std::io::Error::from(ErrorKind::InvalidData))),
+            x => Err(x.into()),
+        }
     }
 }

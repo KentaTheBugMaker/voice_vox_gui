@@ -1,6 +1,8 @@
 //! definition of VoiceVox openapi schema section.
 #![allow(dead_code)]
 
+use std::convert::{TryFrom, TryInto};
+
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -365,6 +367,35 @@ pub struct SupportedDevices {
     /// if enabled when Nvidia gpu + 3GiB VRam
     pub cuda: bool,
     /// if enabled when DirectML supported by engine.
-    /// in engine 0.11.4 not supported.
     pub dml: Option<bool>,
+}
+
+#[derive(Debug)]
+pub struct DownloadableLibraries {
+    download_url: String,
+    bytes: usize,
+    speaker: Speaker,
+    speaker_info: SpeakerInfo,
+}
+
+#[derive(Deserialize, Serialize, Debug)]
+pub struct DownloadableLibrariesRaw {
+    download_url: String,
+    bytes: usize,
+    speaker: Speaker,
+    speaker_info: SpeakerInfoRaw,
+}
+
+impl TryFrom<DownloadableLibrariesRaw> for DownloadableLibraries {
+    type Error = TryFromRawError;
+
+    fn try_from(value: DownloadableLibrariesRaw) -> Result<Self, Self::Error> {
+        let speaker_info = value.speaker_info.try_into()?;
+        Ok(Self {
+            download_url: value.download_url,
+            bytes: value.bytes,
+            speaker: value.speaker,
+            speaker_info,
+        })
+    }
 }
