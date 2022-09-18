@@ -215,10 +215,20 @@ pub struct AccentPhrasesResponse {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct KanaParseError {
+pub struct ParseKanaBadRequest {
     pub text: String,
     pub error_name: String,
     pub error_args: String,
+}
+
+pub enum ErrorName {
+    UnknownText,
+    AccentTop,
+    AccentTwice,
+    AccentNotFound,
+    EmptyPhrase,
+    InterrogationMarkNotAtEnd,
+    InfiniteLoop,
 }
 
 #[allow(non_snake_case, unused_variables)]
@@ -372,10 +382,10 @@ pub struct SupportedDevices {
 
 #[derive(Debug)]
 pub struct DownloadableLibraries {
-    download_url: String,
-    bytes: usize,
-    speaker: Speaker,
-    speaker_info: SpeakerInfo,
+    pub download_url: String,
+    pub bytes: usize,
+    pub speaker: Speaker,
+    pub speaker_info: SpeakerInfo,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -416,17 +426,17 @@ pub struct EngineManifestRaw {
 }
 
 pub struct EngineManifest {
-    manifest_version: String,
-    name: String,
-    uuid: String,
-    url: String,
-    icon: Vec<u8>,
-    default_sampling_rate: i32,
-    term_of_service: String,
-    update_infos: Vec<UpdateInfo>,
-    dependency_licenses: Vec<LicenseInfo>,
-    downloadable_libraries_path: String,
-    downloadable_libraries_url: String,
+    pub manifest_version: String,
+    pub name: String,
+    pub uuid: String,
+    pub url: String,
+    pub icon: Vec<u8>,
+    pub default_sampling_rate: i32,
+    pub term_of_service: String,
+    pub update_infos: Vec<UpdateInfo>,
+    pub dependency_licenses: Vec<LicenseInfo>,
+    pub downloadable_libraries_path: String,
+    pub downloadable_libraries_url: String,
 }
 
 impl TryFrom<EngineManifestRaw> for EngineManifest {
@@ -479,4 +489,30 @@ pub struct LicenseInfo {
     version: String,
     license: String,
     text: String,
+}
+
+pub struct UserDictWord {
+    surface: String,
+    priority: i32,
+    context_id: Option<i32>,
+    part_of_speech: String,
+    part_of_speech_detail_1: String,
+    part_of_speech_detail_2: String,
+    part_of_speech_detail_3: String,
+    inflectional_type: String,
+    inflectional_form: String,
+    stem: String,
+    yomi: String,
+    pronunciation: String,
+    accent_type: i32,
+    mora_count: Option<i32>,
+    accent_associative_rule: String,
+}
+
+pub enum WordType {
+    ProperNoun,
+    CommonNoun,
+    Verb,
+    Adjective,
+    Suffix,
 }

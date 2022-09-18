@@ -65,7 +65,7 @@ async fn init_blank_audio_query() {
         speaker: 2,
         core_version: None,
     }
-    .call()
+    .call("localhost:50021")
     .await
     .unwrap();
     BLANK_AUDIO_QUERY.set(Box::new(blank_query)).unwrap();
@@ -267,7 +267,7 @@ impl eframe::App for VoiceVoxRust {
                                                         core_version: None,
                                                         audio_query: ai.query.unwrap().into(),
                                                     }
-                                                    .call()
+                                                    .call("localhost:50021")
                                                     .await,
                                                 )
                                                 .unwrap()
@@ -395,7 +395,7 @@ impl eframe::App for VoiceVoxRust {
                                                         speaker,
                                                         core_version: None,
                                                     }
-                                                    .call()
+                                                    .call("localhost:50021")
                                                     .await,
                                                 )
                                                 .unwrap();
@@ -431,7 +431,7 @@ impl eframe::App for VoiceVoxRust {
                                                         speaker: style_id,
                                                         core_version: None,
                                                     }
-                                                    .call()
+                                                    .call("localhost:50021")
                                                     .await,
                                                 )
                                                 .unwrap();

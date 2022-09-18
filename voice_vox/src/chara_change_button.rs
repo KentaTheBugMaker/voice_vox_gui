@@ -26,7 +26,10 @@ pub(crate) async fn init_icon_store() -> Option<()> {
     let icons = {
         let mut map = HashMap::new();
 
-        let mut speakers = api::Speakers { core_version: None }.call().await.ok()?;
+        let mut speakers = api::Speakers { core_version: None }
+            .call("localhost:50021")
+            .await
+            .ok()?;
         speakers.sort_by(|a, b| a.name.cmp(&b.name));
         // fetch style and gfx.
         for speaker in speakers {
@@ -35,7 +38,7 @@ pub(crate) async fn init_icon_store() -> Option<()> {
                 speaker_uuid,
                 core_version: None,
             }
-            .call()
+            .call("localhost:50021")
             .await
             .ok()?;
 

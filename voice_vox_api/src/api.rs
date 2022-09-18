@@ -3,7 +3,8 @@
 //!
 
 use crate::api_schema::{
-    AccentPhrase, AccentPhrasesResponse, EngineManifestRaw, HttpValidationError, KanaParseError,
+    AccentPhrase, AccentPhrasesResponse, EngineManifestRaw, HttpValidationError,
+    ParseKanaBadRequest,
 };
 use async_trait::async_trait;
 use once_cell::race::OnceBox;
@@ -35,9 +36,9 @@ pub struct AudioQuery {
 impl Api for AudioQuery {
     type Response = Result<crate::api_schema::AudioQuery, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/audio_query")
+            .post(format!("http://{}/audio_query", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .query(&[("text", &self.text)])
@@ -66,9 +67,9 @@ pub struct AudioQueryFromPreset {
 impl Api for AudioQueryFromPreset {
     type Response = Result<crate::api_schema::AudioQuery, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/audio_query_from_preset")
+            .post(format!("http://{}/audio_query_from_preset", server))
             .query(&[("preset_id", self.preset_id)])
             .add_core_version(&self.core_version)
             .query(&[("text", &self.text)])
@@ -86,7 +87,7 @@ impl Api for AudioQueryFromPreset {
 pub trait Api {
     type Response;
 
-    async fn call(&self) -> Self::Response;
+    async fn call(&self, server: &str) -> Self::Response;
 }
 
 /// # テキストからアクセント句を得る
@@ -109,7 +110,7 @@ pub struct AccentPhrases {
 
 #[derive(Debug)]
 pub enum AccentPhrasesErrors {
-    KanaParseError(KanaParseError),
+    KanaParseError(ParseKanaBadRequest),
     ApiError(APIError),
 }
 
@@ -129,9 +130,9 @@ impl From<reqwest::StatusCode> for AccentPhrasesErrors {
 impl Api for AccentPhrases {
     type Response = Result<AccentPhrasesResponse, AccentPhrasesErrors>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/audio_query")
+            .post(format!("http://{}/accent_phrases", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .query(&[("is_kana", self.is_kana.unwrap_or(false))])
@@ -164,9 +165,9 @@ pub struct MoraData {
 impl Api for MoraData {
     type Response = Result<Vec<AccentPhrase>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/mora_data")
+            .post(format!("http://{}/mora_data", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .json(&self.accent_phrases)
@@ -193,9 +194,9 @@ pub struct MoraLength {
 impl Api for MoraLength {
     type Response = Result<Vec<AccentPhrase>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/mora_length")
+            .post(format!("http://{}/mora_length", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .json(&self.accent_phrases)
@@ -221,9 +222,9 @@ pub struct MoraPitch {
 impl Api for MoraPitch {
     type Response = Result<Vec<AccentPhrase>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/mora_pitch")
+            .post(format!("http://{}/mora_pitch", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .json(&self.accent_phrases)
@@ -250,9 +251,9 @@ pub struct Synthesis {
 impl Api for Synthesis {
     type Response = Result<Vec<u8>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/synthesis")
+            .post(format!("http://{}/synthesis", server))
             .query(&[("speaker", self.speaker)])
             .query(&[(
                 "enable_interrogative_upspeak",
@@ -282,9 +283,9 @@ pub struct CancellableSynthesis {
 impl Api for CancellableSynthesis {
     type Response = Result<Vec<u8>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/cancellable_synthesis")
+            .post(format!("http://{}/cancellable_synthesis", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .json(&self.audio_query)
@@ -313,9 +314,9 @@ pub struct MultiSynthesis {
 impl Api for MultiSynthesis {
     type Response = Result<Vec<u8>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/multi_synthesis")
+            .post(format!("http://{}/multi_synthesis", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .json(&self.audio_query)
@@ -347,9 +348,9 @@ pub struct SynthesisMorphing {
 impl Api for SynthesisMorphing {
     type Response = Result<Vec<u8>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .post("http://localhost:50021/synthesis_morphing")
+            .post(format!("http://{}/synthesis_morphing", server))
             .query(&[
                 ("base_speaker", self.base_speaker),
                 ("target_speaker", self.target_speaker),
@@ -381,13 +382,13 @@ pub struct ConnectWaves {
 impl Api for ConnectWaves {
     type Response = Result<Vec<u8>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let mut buffer = Vec::new();
         for wave in &self.waves {
             buffer.push(base64::encode(wave));
         }
         let request = client()
-            .post("http://localhost:50021/connect_waves")
+            .post(format!("http://{}/connect_waves", server))
             .json(&buffer)
             .build()
             .unwrap();
@@ -406,9 +407,9 @@ pub struct Presets;
 impl Api for Presets {
     type Response = Result<Vec<crate::api_schema::Preset>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .get("http://localhost:50021/presets")
+            .get(format!("http://{}/presets", server))
             .build()
             .unwrap();
         let res = client().execute(request).await.unwrap();
@@ -425,9 +426,9 @@ pub struct Version;
 impl Api for Version {
     type Response = Result<Option<String>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .get("http://localhost:50021/version")
+            .get(format!("http://{}/version", server))
             .build()
             .unwrap();
         let res = client().execute(request).await.unwrap();
@@ -444,9 +445,9 @@ pub struct CoreVersions;
 impl Api for CoreVersions {
     type Response = Result<Vec<String>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .get("http://localhost:50021/core_versions")
+            .get(format!("http://{}/core_versions", server))
             .build()
             .unwrap();
         let res = client().execute(request).await.unwrap();
@@ -465,9 +466,9 @@ pub struct Speakers {
 impl Api for Speakers {
     type Response = Result<Vec<crate::api_schema::Speaker>, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .get("http://localhost:50021/speakers")
+            .get(format!("http://{}/speakers", server))
             .add_core_version(&self.core_version)
             .build()
             .unwrap();
@@ -489,9 +490,9 @@ pub struct SpeakerInfo {
 impl Api for SpeakerInfo {
     type Response = Result<crate::api_schema::SpeakerInfo, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let req = client()
-            .get("http://localhost:50021/speaker_info")
+            .get(format!("http://{}/speaker_info", server))
             .query(&[("speaker_uuid", &self.speaker_uuid)])
             .add_core_version(&self.core_version)
             .build()
@@ -517,9 +518,9 @@ pub struct SupportedDevices {
 impl Api for SupportedDevices {
     type Response = Result<crate::api_schema::SupportedDevices, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let request = client()
-            .get("http://localhost:50021/supported_devices")
+            .get(format!("http://{}/supported_devices", server))
             .add_core_version(&self.core_version)
             .build()
             .unwrap();
@@ -577,9 +578,9 @@ pub struct DownloadableLibraries;
 impl Api for DownloadableLibraries {
     type Response = Result<crate::api_schema::DownloadableLibraries, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let req = client()
-            .get("http://localhost:50021/downloadble_libraries")
+            .get(format!("http://{}/downloadble_libraries", server))
             .build()
             .unwrap();
         let res = client().execute(req).await.unwrap();
@@ -603,9 +604,9 @@ pub struct InitializeSpeaker {
 impl Api for InitializeSpeaker {
     type Response = Result<(), APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let req = client()
-            .post("http://localhost:50021/initialize_speaker")
+            .post(format!("http://{}/initialize_speaker", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .build()
@@ -627,9 +628,9 @@ pub struct IsInitializedSpeaker {
 impl Api for IsInitializedSpeaker {
     type Response = Result<bool, APIError>;
 
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let req = client()
-            .get("http://localhost:50021/is_initialized_speaker")
+            .get(format!("http://{}/is_initialized_speaker", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .build()
@@ -647,9 +648,9 @@ pub struct EngineManifest;
 #[async_trait]
 impl Api for EngineManifest {
     type Response = Result<crate::api_schema::EngineManifest, APIError>;
-    async fn call(&self) -> Self::Response {
+    async fn call(&self, server: &str) -> Self::Response {
         let req = client()
-            .get("http://localhost:50021/engine_manifest")
+            .get(format!("http://{}/engine_manifest", server))
             .build()
             .unwrap();
         let res = client().execute(req).await.unwrap();

@@ -18,7 +18,7 @@ mod test {
             speaker: 0,
             core_version: None,
         }
-        .call()
+        .call("localhost:50021")
         .await
         .unwrap();
         let aq1 = AudioQuery {
@@ -26,7 +26,7 @@ mod test {
             speaker: 0,
             core_version: None,
         }
-        .call()
+        .call("localhost:50021")
         .await
         .unwrap();
         MultiSynthesis {
@@ -34,15 +34,17 @@ mod test {
             core_version: None,
             audio_query: vec![aq0, aq1],
         }
-        .call()
+        .call("localhost:50021")
         .await
         .unwrap();
     }
 
     #[tokio::test]
     async fn call_synthesis_morphing() {
-        let speakers: Vec<crate::api_schema::Speaker> =
-            Speakers { core_version: None }.call().await.unwrap();
+        let speakers: Vec<crate::api_schema::Speaker> = Speakers { core_version: None }
+            .call("localhost:50021")
+            .await
+            .unwrap();
         let id_0 = speakers[0].styles[0].id;
         let id_1 = speakers[1].styles[0].id;
 
@@ -51,7 +53,7 @@ mod test {
             speaker: id_0,
             core_version: None,
         }
-        .call()
+        .call("localhost:50021")
         .await
         .unwrap();
         SynthesisMorphing {
@@ -61,7 +63,7 @@ mod test {
             core_version: None,
             audio_query: aq,
         }
-        .call()
+        .call("localhost:50021")
         .await
         .unwrap();
     }
@@ -69,47 +71,50 @@ mod test {
     #[tokio::test]
     async fn call_connect_waves() {
         let waves = vec![];
-        ConnectWaves { waves }.call().await.unwrap_or_default();
+        ConnectWaves { waves }
+            .call("localhost:50021")
+            .await
+            .unwrap_or_default();
     }
 
     #[tokio::test]
     async fn call_presets() {
         let presets = Presets;
-        presets.call().await.unwrap();
+        presets.call("localhost:50021").await.unwrap();
     }
 
     #[tokio::test]
     async fn call_version() {
         let version = Version;
-        version.call().await.unwrap();
+        version.call("localhost:50021").await.unwrap();
     }
 
     #[tokio::test]
     async fn call_core_versions() {
         let version = CoreVersions;
-        version.call().await.unwrap();
+        version.call("localhost:50021").await.unwrap();
     }
 
     #[tokio::test]
     async fn call_speakers() {
         let speakers = Speakers { core_version: None };
-        speakers.call().await.unwrap();
+        speakers.call("localhost:50021").await.unwrap();
     }
 
     #[tokio::test]
     async fn call_speaker_info() {
         let speakers = Speakers { core_version: None };
-        let speakers = speakers.call().await.unwrap();
+        let speakers = speakers.call("localhost:50021").await.unwrap();
         let info = SpeakerInfo {
             speaker_uuid: speakers[0].speaker_uuid.clone(),
             core_version: None,
         };
-        info.call().await.unwrap();
+        info.call("localhost:50021").await.unwrap();
     }
 
     #[tokio::test]
     async fn call_supported_devices() {
         let supported_devices = SupportedDevices { core_version: None };
-        supported_devices.call().await.unwrap();
+        supported_devices.call("localhost:50021").await.unwrap();
     }
 }
