@@ -399,3 +399,84 @@ impl TryFrom<DownloadableLibrariesRaw> for DownloadableLibraries {
         })
     }
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EngineManifestRaw {
+    manifest_version: String,
+    name: String,
+    uuid: String,
+    url: String,
+    icon: String,
+    default_sampling_rate: i32,
+    term_of_service: String,
+    update_infos: Vec<UpdateInfo>,
+    dependency_licenses: Vec<LicenseInfo>,
+    downloadable_libraries_path: String,
+    downloadable_libraries_url: String,
+}
+
+pub struct EngineManifest {
+    manifest_version: String,
+    name: String,
+    uuid: String,
+    url: String,
+    icon: Vec<u8>,
+    default_sampling_rate: i32,
+    term_of_service: String,
+    update_infos: Vec<UpdateInfo>,
+    dependency_licenses: Vec<LicenseInfo>,
+    downloadable_libraries_path: String,
+    downloadable_libraries_url: String,
+}
+
+impl TryFrom<EngineManifestRaw> for EngineManifest {
+    type Error = TryFromRawError;
+    fn try_from(mut raw: EngineManifestRaw) -> Result<Self, Self::Error> {
+        Ok(Self {
+            manifest_version: raw.manifest_version,
+            name: raw.name,
+            uuid: raw.uuid,
+            url: raw.url,
+            icon: base64::decode(raw.icon).map_err(|_| TryFromRawError::Base64Decode)?,
+            default_sampling_rate: raw.default_sampling_rate,
+            term_of_service: raw.term_of_service,
+            update_infos: raw.update_infos,
+            dependency_licenses: raw.dependency_licenses,
+            downloadable_libraries_path: raw.downloadable_libraries_path,
+            downloadable_libraries_url: raw.downloadable_libraries_url,
+        })
+    }
+}
+
+impl From<EngineManifest> for EngineManifestRaw {
+    fn from(mut raw: EngineManifest) -> Self {
+        Self {
+            manifest_version: raw.manifest_version,
+            name: raw.name,
+            uuid: raw.uuid,
+            url: raw.url,
+            icon: base64::encode(raw.icon),
+            default_sampling_rate: raw.default_sampling_rate,
+            term_of_service: raw.term_of_service,
+            update_infos: raw.update_infos,
+            dependency_licenses: raw.dependency_licenses,
+            downloadable_libraries_path: raw.downloadable_libraries_path,
+            downloadable_libraries_url: raw.downloadable_libraries_url,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateInfo {
+    version: String,
+    descriptions: Vec<String>,
+    contributers: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct LicenseInfo {
+    name: String,
+    version: String,
+    license: String,
+    text: String,
+}

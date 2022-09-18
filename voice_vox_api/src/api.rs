@@ -2,11 +2,13 @@
 //!
 //!
 
-use crate::api_schema::{AccentPhrase, AccentPhrasesResponse, HttpValidationError, KanaParseError};
+use crate::api_schema::{
+    AccentPhrase, AccentPhrasesResponse, EngineManifestRaw, HttpValidationError, KanaParseError,
+};
 use async_trait::async_trait;
 use once_cell::race::OnceBox;
 use reqwest::{Error, StatusCode};
-use std::io::ErrorKind;
+use std::{convert::TryInto, io::ErrorKind};
 
 pub type CoreVersion = Option<String>;
 
@@ -603,7 +605,7 @@ impl Api for InitializeSpeaker {
 
     async fn call(&self) -> Self::Response {
         let req = client()
-            .get("http://localhost:50021/initialize_speaker")
+            .post("http://localhost:50021/initialize_speaker")
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .build()
@@ -612,6 +614,52 @@ impl Api for InitializeSpeaker {
         match res.status() {
             StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
             StatusCode::NO_CONTENT => Ok(()),
+            x => Err(x.into()),
+        }
+    }
+}
+
+pub struct IsInitializedSpeaker {
+    speaker: i32,
+    core_version: CoreVersion,
+}
+#[async_trait]
+impl Api for IsInitializedSpeaker {
+    type Response = Result<bool, APIError>;
+
+    async fn call(&self) -> Self::Response {
+        let req = client()
+            .get("http://localhost:50021/is_initialized_speaker")
+            .query(&[("speaker", self.speaker)])
+            .add_core_version(&self.core_version)
+            .build()
+            .unwrap();
+        let res = client().execute(req).await.unwrap();
+        match res.status() {
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::OK => Ok(res.json::<bool>().await?),
+            x => Err(x.into()),
+        }
+    }
+}
+
+pub struct EngineManifest;
+#[async_trait]
+impl Api for EngineManifest {
+    type Response = Result<crate::api_schema::EngineManifest, APIError>;
+    async fn call(&self) -> Self::Response {
+        let req = client()
+            .get("http://localhost:50021/engine_manifest")
+            .build()
+            .unwrap();
+        let res = client().execute(req).await.unwrap();
+        match res.status() {
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::OK => res
+                .json::<EngineManifestRaw>()
+                .await?
+                .try_into()
+                .map_err(|_| APIError::Io(std::io::Error::from(ErrorKind::InvalidData))),
             x => Err(x.into()),
         }
     }
