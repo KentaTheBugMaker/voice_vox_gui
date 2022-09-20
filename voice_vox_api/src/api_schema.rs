@@ -441,7 +441,7 @@ pub struct EngineManifest {
 
 impl TryFrom<EngineManifestRaw> for EngineManifest {
     type Error = TryFromRawError;
-    fn try_from(mut raw: EngineManifestRaw) -> Result<Self, Self::Error> {
+    fn try_from(raw: EngineManifestRaw) -> Result<Self, Self::Error> {
         Ok(Self {
             manifest_version: raw.manifest_version,
             name: raw.name,
@@ -459,7 +459,7 @@ impl TryFrom<EngineManifestRaw> for EngineManifest {
 }
 
 impl From<EngineManifest> for EngineManifestRaw {
-    fn from(mut raw: EngineManifest) -> Self {
+    fn from(raw: EngineManifest) -> Self {
         Self {
             manifest_version: raw.manifest_version,
             name: raw.name,
@@ -491,6 +491,7 @@ pub struct LicenseInfo {
     text: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UserDictWord {
     surface: String,
     priority: i32,
@@ -509,10 +510,24 @@ pub struct UserDictWord {
     accent_associative_rule: String,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum WordType {
     ProperNoun,
     CommonNoun,
     Verb,
     Adjective,
     Suffix,
+}
+
+impl ToString for WordType {
+    fn to_string(&self) -> String {
+        match self {
+            WordType::ProperNoun => "PROPER_NOUN",
+            WordType::CommonNoun => "COMMON_NOUN",
+            WordType::Verb => "VERB",
+            WordType::Adjective => "ADJECTIVE",
+            WordType::Suffix => "SUFFIX",
+        }
+        .to_owned()
+    }
 }

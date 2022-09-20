@@ -2,8 +2,8 @@ use crate::commands::BottomPaneCommand;
 
 use eframe::{
     egui::{
-        Align, Align2, Context, FontId, Layout, NumExt, Response, SelectableLabel, Sense,
-        TextStyle, Ui, Vec2, Widget,
+        Align, Align2, FontId, Layout, NumExt, Response, SelectableLabel, Sense, TextStyle, Ui,
+        Vec2, Widget,
     },
     epaint::{self, pos2, vec2, Color32, Rect, RectShape, Rounding, Stroke},
 };

@@ -3,13 +3,13 @@
 //!
 
 use crate::api_schema::{
-    AccentPhrase, AccentPhrasesResponse, EngineManifestRaw, HttpValidationError,
-    ParseKanaBadRequest,
+    self, AccentPhrase, AccentPhrasesResponse, EngineManifestRaw, HttpValidationError,
+    ParseKanaBadRequest, WordType,
 };
 use async_trait::async_trait;
 use once_cell::race::OnceBox;
 use reqwest::{Error, StatusCode};
-use std::{convert::TryInto, io::ErrorKind};
+use std::{collections::HashMap, convert::TryInto, io::ErrorKind};
 
 pub type CoreVersion = Option<String>;
 
@@ -597,8 +597,8 @@ impl Api for DownloadableLibraries {
 }
 
 pub struct InitializeSpeaker {
-    speaker: i32,
-    core_version: CoreVersion,
+    pub speaker: i32,
+    pub core_version: CoreVersion,
 }
 #[async_trait]
 impl Api for InitializeSpeaker {
@@ -621,8 +621,8 @@ impl Api for InitializeSpeaker {
 }
 
 pub struct IsInitializedSpeaker {
-    speaker: i32,
-    core_version: CoreVersion,
+    pub speaker: i32,
+    pub core_version: CoreVersion,
 }
 #[async_trait]
 impl Api for IsInitializedSpeaker {
@@ -661,6 +661,174 @@ impl Api for EngineManifest {
                 .await?
                 .try_into()
                 .map_err(|_| APIError::Io(std::io::Error::from(ErrorKind::InvalidData))),
+            x => Err(x.into()),
+        }
+    }
+}
+
+/// Get registered word list from user dictionary.
+///
+/// This result contains word UUID and definition.
+///
+pub struct UserDict;
+#[async_trait]
+impl Api for UserDict {
+    type Response = Result<HashMap<String, crate::api_schema::UserDictWord>, APIError>;
+    async fn call(&self, server: &str) -> Self::Response {
+        let req = client()
+            .get(format!("http://{}/user_dict", server))
+            .build()
+            .unwrap();
+        let res = client().execute(req).await.unwrap();
+        match res.status() {
+            StatusCode::OK => Ok(res
+                .json::<HashMap<String, crate::api_schema::UserDictWord>>()
+                .await?),
+            x => Err(x.into()),
+        }
+    }
+}
+
+/// Add word to user dictionary.
+///
+/// This result returns word UUID.
+///
+pub struct UserDictWord {
+    ///言葉の表層形
+    pub surface: String,
+    ///言葉の発音(カタカナ)
+    pub pronunciation: String,
+    /// アクセント型(音が下がる場所)
+    pub accent_type: i32,
+    pub word_type: Option<WordType>,
+    ///単語の優先度
+    pub priority: Option<i32>,
+}
+#[async_trait]
+impl Api for UserDictWord {
+    type Response = Result<String, APIError>;
+
+    async fn call(&self, server: &str) -> Self::Response {
+        let req = client()
+            .post(format!("http://{}/user_dict_word", server))
+            .query(&[
+                ("surface", &self.surface),
+                ("pronunciation", &self.pronunciation),
+            ])
+            .query(&[("accent_type", self.accent_type)]);
+        let req = if let Some(priority) = self.priority {
+            req.query(&[("priority", priority)])
+        } else {
+            req
+        };
+        let req = if let Some(word_type) = self.word_type {
+            req.query(&[("word_type", word_type.to_string())])
+        } else {
+            req
+        }
+        .build()
+        .unwrap();
+        let res = client().execute(req).await.unwrap();
+        match res.status() {
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::OK => Ok(res.text().await?),
+            x => Err(x.into()),
+        }
+    }
+}
+
+/// rewrite word on user dictionary.
+///
+pub struct RewriteUserDictWord {
+    /// word uuid
+    pub uuid: String,
+    ///言葉の表層形
+    pub surface: String,
+    ///言葉の発音(カタカナ)
+    pub pronunciation: String,
+    /// アクセント型(音が下がる場所)
+    pub accent_type: i32,
+    pub word_type: Option<WordType>,
+    ///単語の優先度
+    pub priority: Option<i32>,
+}
+#[async_trait]
+impl Api for RewriteUserDictWord {
+    type Response = Result<(), APIError>;
+
+    async fn call(&self, server: &str) -> Self::Response {
+        let req = client()
+            .put(format!("http://{}/user_dict_word/{}", server, self.uuid))
+            .query(&[
+                ("surface", &self.surface),
+                ("pronunciation", &self.pronunciation),
+            ])
+            .query(&[("accent_type", self.accent_type)]);
+        let req = if let Some(priority) = self.priority {
+            req.query(&[("priority", priority)])
+        } else {
+            req
+        };
+        let req = if let Some(word_type) = self.word_type {
+            req.query(&[("word_type", word_type.to_string())])
+        } else {
+            req
+        }
+        .build()
+        .unwrap();
+        let res = client().execute(req).await.unwrap();
+        match res.status() {
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::NO_CONTENT => Ok(()),
+            x => Err(x.into()),
+        }
+    }
+}
+
+/// delete word from user dictionary.
+///
+///
+pub struct DeleteUserDictWord {
+    /// word uuid
+    pub uuid: String,
+}
+#[async_trait]
+impl Api for DeleteUserDictWord {
+    type Response = Result<(), APIError>;
+
+    async fn call(&self, server: &str) -> Self::Response {
+        let req = client()
+            .delete(format!("http://{}/user_dict_word/{}", server, self.uuid))
+            .build()
+            .unwrap();
+        let res = client().execute(req).await.unwrap();
+        match res.status() {
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::NO_CONTENT => Ok(()),
+            x => Err(x.into()),
+        }
+    }
+}
+
+/// import user dictionary.
+///
+pub struct ImportUserDict {
+    pub over_ride: bool,
+    pub dictionary: HashMap<String, api_schema::UserDictWord>,
+}
+#[async_trait]
+impl Api for ImportUserDict {
+    type Response = Result<(), APIError>;
+    async fn call(&self, server: &str) -> Self::Response {
+        let req = client()
+            .post(format!("http://{}/import_user_dict", server))
+            .json(&self.dictionary)
+            .build()
+            .unwrap();
+        let res = client().execute(req).await?;
+        match res.status() {
+            StatusCode::NO_CONTENT => Ok(()),
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
             x => Err(x.into()),
         }
     }
