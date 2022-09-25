@@ -13,8 +13,9 @@ use crate::tool_bar::ToolBarOp;
 use eframe::egui;
 use std::collections::HashMap;
 use std::io::Cursor;
-use tokio::sync::oneshot::error::TryRecvError;
-use tokio::sync::oneshot::Receiver;
+
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::sync::oneshot::{error::TryRecvError, Receiver};
 
 use voice_vox_api::api;
 use voice_vox_api::api_schema;
@@ -37,6 +38,7 @@ enum DialogueKind {
 }
 
 struct VoiceVoxRust {
+    server: String,
     opening_file: Option<String>,
     tool_bar_config: Vec<ToolBarOp>,
     current_view: CurrentView,
@@ -54,22 +56,6 @@ struct VoiceVoxRust {
     /// * value : Cursor wrapped wav file.
     ///
     synthesis_cache: HashMap<(String, tokio::time::Instant), SynthesisState>,
-}
-
-pub static BLANK_AUDIO_QUERY: once_cell::race::OnceBox<api_schema::AudioQuery> =
-    once_cell::race::OnceBox::new();
-
-async fn init_blank_audio_query() {
-    let blank_query = api::AudioQuery {
-        text: "".to_string(),
-        speaker: 2,
-        core_version: None,
-    }
-    .call("localhost:50021")
-    .await
-    .unwrap();
-    BLANK_AUDIO_QUERY.set(Box::new(blank_query)).unwrap();
-    log::debug!("initialized blank audio query.")
 }
 
 enum CurrentView {
@@ -100,12 +86,12 @@ impl VoiceVoxRust {
             audio_query_jobs: Default::default(),
             current_displaying: Displaying::Accent,
             synthesis_cache: HashMap::new(),
+            server: String::new(),
         }
     }
 
-    fn setup(&mut self, cc: &CreationContext) {
+    fn setup(&mut self, cc: &CreationContext) -> String {
         let mut fonts = egui::FontDefinitions::default();
-
         fonts
             .families
             .entry(FontFamily::Proportional)
@@ -123,6 +109,10 @@ impl VoiceVoxRust {
         );
 
         cc.egui_ctx.set_fonts(fonts);
+        cc.storage
+            .map(|storage| storage.get_string("server"))
+            .flatten()
+            .unwrap_or("localhost:50021".to_owned())
     }
 }
 
@@ -259,6 +249,7 @@ impl eframe::App for VoiceVoxRust {
                                             .get(&self.current_selected_tts_line)
                                         {
                                             let ai = ai.clone();
+                                            let server = self.server.clone();
                                             tokio::spawn(async move {
                                                 tx.send(
                                                     api::Synthesis {
@@ -267,7 +258,7 @@ impl eframe::App for VoiceVoxRust {
                                                         core_version: None,
                                                         audio_query: ai.query.unwrap().into(),
                                                     }
-                                                    .call("localhost:50021")
+                                                    .call(&server)
                                                     .await,
                                                 )
                                                 .unwrap()
@@ -388,6 +379,7 @@ impl eframe::App for VoiceVoxRust {
                                                 line.clone(),
                                                 AudioQueryState::WaitingForQuery(text.clone(), rx),
                                             );
+                                            let server = self.server.clone();
                                             tokio::spawn(async move {
                                                 tx.send(
                                                     api::AudioQuery {
@@ -395,7 +387,7 @@ impl eframe::App for VoiceVoxRust {
                                                         speaker,
                                                         core_version: None,
                                                     }
-                                                    .call("localhost:50021")
+                                                    .call(&server)
                                                     .await,
                                                 )
                                                 .unwrap();
@@ -424,6 +416,7 @@ impl eframe::App for VoiceVoxRust {
                                                 line.clone(),
                                                 AudioQueryState::WaitingForQuery(text.clone(), rx),
                                             );
+                                            let server = self.server.clone();
                                             tokio::spawn(async move {
                                                 tx.send(
                                                     api::AudioQuery {
@@ -431,7 +424,7 @@ impl eframe::App for VoiceVoxRust {
                                                         speaker: style_id,
                                                         core_version: None,
                                                     }
-                                                    .call("localhost:50021")
+                                                    .call(&server)
                                                     .await,
                                                 )
                                                 .unwrap();
@@ -511,9 +504,7 @@ impl eframe::App for VoiceVoxRust {
                                         crate::project::AudioItem {
                                             text: "".to_string(),
                                             styleId: 2,
-                                            query: Some(
-                                                BLANK_AUDIO_QUERY.get().cloned().unwrap().into(),
-                                            ),
+                                            query: Some(api_schema::AudioQuery::default().into()),
                                             presetKey: None,
                                         },
                                     )),
@@ -752,10 +743,17 @@ impl eframe::App for VoiceVoxRust {
         }
     }
 }
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub async fn run() {
+    console_log::init_with_level(log::Level::Debug);
+}
+#[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 async fn main() {
     simple_log::console("debug").unwrap();
-    init_blank_audio_query().await;
     chara_change_button::init_icon_store().await;
     let mut app = VoiceVoxRust::new().await;
 
@@ -766,7 +764,9 @@ async fn main() {
             ..NativeOptions::default()
         },
         Box::new(|cc| {
-            app.setup(cc);
+            let server = app.setup(cc);
+            app.server = server.clone();
+
             Box::new(app)
         }),
     );

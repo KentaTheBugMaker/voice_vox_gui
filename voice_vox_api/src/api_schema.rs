@@ -24,6 +24,23 @@ pub struct AudioQuery {
     pub kana: Option<String>,
 }
 
+impl Default for AudioQuery {
+    fn default() -> Self {
+        Self {
+            accent_phrases: Vec::new(),
+            speedScale: 1.0,
+            pitchScale: 0.0,
+            intonationScale: 1.0,
+            volumeScale: 1.0,
+            prePhonemeLength: 0.1,
+            postPhonemeLength: 0.1,
+            outputSamplingRate: 24000,
+            outputStereo: Default::default(),
+            kana: None,
+        }
+    }
+}
+
 /// this is used in AudioItem.
 ///
 ///

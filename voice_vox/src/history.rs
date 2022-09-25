@@ -1,3 +1,5 @@
+use voice_vox_api::api_schema;
+
 use crate::project::VoiceVoxProject;
 use std::collections::HashMap;
 
@@ -36,12 +38,13 @@ impl HistoryManager {
         let blank = uuid::Uuid::new_v4();
         let dummy = blank.to_string();
         let mut items = HashMap::new();
+
         items.insert(
             dummy.clone(),
             crate::project::AudioItem {
                 text: "".to_string(),
                 styleId: 2,
-                query: Some(crate::BLANK_AUDIO_QUERY.get().unwrap().clone().into()),
+                query: Some(api_schema::AudioQuery::default().into()),
                 presetKey: None,
             },
         );
