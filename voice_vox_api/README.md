@@ -13,3 +13,7 @@
  * [voice_vox](https://github.com/t18b219k/voice_vox_gui/tree/master/voice_vox)
 ## versioning
  * use same version number with VoiceVox engine.
+ * some fix applied without announce
+## fix
+ * fix pause mora in project file.  
+ * use f64 instead of f32 to provicde same precision as VoiceVox.

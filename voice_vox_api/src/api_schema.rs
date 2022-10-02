@@ -13,12 +13,12 @@ use serde::{Deserialize, Serialize, Serializer};
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct AudioQuery {
     pub accent_phrases: Vec<AccentPhrase>,
-    pub speedScale: f32,
-    pub pitchScale: f32,
-    pub intonationScale: f32,
-    pub volumeScale: f32,
-    pub prePhonemeLength: f32,
-    pub postPhonemeLength: f32,
+    pub speedScale: f64,
+    pub pitchScale: f64,
+    pub intonationScale: f64,
+    pub volumeScale: f64,
+    pub prePhonemeLength: f64,
+    pub postPhonemeLength: f64,
     pub outputSamplingRate: i32,
     pub outputStereo: bool,
     pub kana: Option<String>,
@@ -48,12 +48,12 @@ impl Default for AudioQuery {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct AudioQueryInProject {
     pub accentPhrases: Vec<AccentPhraseInProject>,
-    pub speedScale: f32,
-    pub pitchScale: f32,
-    pub intonationScale: f32,
-    pub volumeScale: f32,
-    pub prePhonemeLength: f32,
-    pub postPhonemeLength: f32,
+    pub speedScale: f64,
+    pub pitchScale: f64,
+    pub intonationScale: f64,
+    pub volumeScale: f64,
+    pub prePhonemeLength: f64,
+    pub postPhonemeLength: f64,
     pub outputSamplingRate: i32,
     pub outputStereo: bool,
     pub kana: Option<String>,
@@ -162,10 +162,10 @@ impl From<AccentPhraseInProject> for AccentPhrase {
 pub struct Mora {
     pub text: String,
     pub consonant: Option<String>,
-    pub consonant_length: Option<f32>,
+    pub consonant_length: Option<f64>,
     pub vowel: String,
-    pub vowel_length: f32,
-    pub pitch: f32,
+    pub vowel_length: f64,
+    pub pitch: f64,
 }
 
 #[allow(non_snake_case)]
@@ -177,10 +177,10 @@ pub struct MoraInProject {
     pub consonant: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
-    pub consonantLength: Option<f32>,
+    pub consonantLength: Option<f64>,
     pub vowel: String,
-    pub vowelLength: f32,
-    pub pitch: f32,
+    pub vowelLength: f64,
+    pub pitch: f64,
 }
 
 impl From<Mora> for MoraInProject {
@@ -255,12 +255,12 @@ pub struct Preset {
     pub name: String,
     pub speaker_uuid: String,
     pub style_id: i32,
-    pub speedScale: f32,
-    pub pitchScale: f32,
-    pub intonationScale: f32,
-    pub volumeScale: f32,
-    pub prePhonemeLength: f32,
-    pub postPhonemeLength: f32,
+    pub speedScale: f64,
+    pub pitchScale: f64,
+    pub intonationScale: f64,
+    pub volumeScale: f64,
+    pub prePhonemeLength: f64,
+    pub postPhonemeLength: f64,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
