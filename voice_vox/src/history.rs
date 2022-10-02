@@ -28,7 +28,6 @@ pub trait Command {
 pub struct HistoryManager {
     undo_stack: Vec<(Box<dyn Command>, String)>,
     redo_stack: Vec<(Box<dyn Command>, String)>,
-    update_times: HashMap<String, (Vec<tokio::time::Instant>, usize)>,
     pub project: crate::VoiceVoxProject,
     last_saved_snapshot: Option<crate::VoiceVoxProject>,
 }
@@ -51,7 +50,6 @@ impl HistoryManager {
         Self {
             undo_stack: vec![],
             redo_stack: vec![],
-            update_times: Default::default(),
             project: VoiceVoxProject {
                 appVersion: "0.11.4".to_string(),
                 audioKeys: vec![dummy],
@@ -64,7 +62,6 @@ impl HistoryManager {
         Self {
             undo_stack: vec![],
             redo_stack: vec![],
-            update_times: Default::default(),
             project,
             last_saved_snapshot: None,
         }
@@ -75,14 +72,6 @@ impl HistoryManager {
         self.redo_stack.clear();
         let now = tokio::time::Instant::now();
 
-        if let Some((times, cursor)) = self.update_times.get_mut(&uuid) {
-            times.push(now);
-            *cursor += 1;
-            log::debug!("{} revision {}", uuid, cursor);
-        } else {
-            self.update_times.insert(uuid.clone(), (vec![now], 0));
-        }
-
         log::debug!("exec {}", command.op_name());
         self.undo_stack.push((command, uuid));
     }
@@ -90,12 +79,7 @@ impl HistoryManager {
     pub fn undo(&mut self) {
         if let Some((mut op, uuid)) = self.undo_stack.pop() {
             op.undo(&mut self.project, &uuid);
-            if let Some((_times, cursor)) = self.update_times.get_mut(&uuid) {
-                if *cursor > 0 {
-                    *cursor -= 1;
-                    log::debug!("{} revision {}", uuid, cursor);
-                }
-            }
+
             log::debug!("revert {}", op.op_name());
             self.redo_stack.push((op, uuid));
         } else {
@@ -106,23 +90,12 @@ impl HistoryManager {
     pub fn redo(&mut self) {
         if let Some((mut op, uuid)) = self.redo_stack.pop() {
             op.redo(&mut self.project, &uuid);
-            if let Some((times, cursor)) = self.update_times.get_mut(&uuid) {
-                if *cursor < times.len() {
-                    *cursor += 1;
-                    log::debug!("{} revision {}", uuid, cursor);
-                }
-            }
+
             log::debug!("redo {}", op.op_name());
             self.undo_stack.push((op, uuid));
         } else {
             log::debug!("no more in redo stack.");
         }
-    }
-
-    pub fn get_current_time_stamp(&self, uuid: &str) -> Option<tokio::time::Instant> {
-        self.update_times
-            .get(uuid)
-            .map(|(times, cursor)| times[*cursor])
     }
 
     pub fn is_empty(&self) -> bool {

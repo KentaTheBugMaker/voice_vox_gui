@@ -1,7 +1,8 @@
-use eframe::egui::{Color32, Context, FontFamily, Layout, Stroke};
-use eframe::{CreationContext, Frame, NativeOptions};
-
 use crate::api::Api;
+use eframe::egui::{Color32, Context, FontFamily, Layout, Stroke};
+#[cfg(not(target_arch = "wasm32"))]
+use eframe::NativeOptions;
+use eframe::{CreationContext, Frame};
 
 use crate::bottom_pane::Displaying;
 use crate::commands::AudioQueryCommands;
@@ -29,8 +30,8 @@ mod left_pane;
 mod menu;
 mod project;
 mod right_pane;
+mod save_operation;
 mod tool_bar;
-
 enum DialogueKind {
     ExitCustomize,
     RestoreDefault,
@@ -55,7 +56,7 @@ struct VoiceVoxRust {
     /// * key : (uuid,timestamp)
     /// * value : Cursor wrapped wav file.
     ///
-    synthesis_cache: HashMap<(String, tokio::time::Instant), SynthesisState>,
+    synthesis_cache: HashMap<String, SynthesisState>,
 }
 
 enum CurrentView {
@@ -131,6 +132,7 @@ enum SynthesisState {
 
 impl eframe::App for VoiceVoxRust {
     fn update(&mut self, ctx: &Context, frame: &mut Frame) {
+        #[cfg(not(target_arch = "wasm32"))]
         frame.set_window_title(&format!(
             "{} {} VoiceVox",
             if self.histories.saved() { "" } else { "*" },
@@ -158,37 +160,16 @@ impl eframe::App for VoiceVoxRust {
                 TopMenuOp::OutputConnected => {}
                 TopMenuOp::LoadText => {}
                 TopMenuOp::OverwriteProject => {
-                    self.histories.save();
+                    save_operation::save(&mut self.histories, &self.opening_file);
                 }
                 TopMenuOp::SaveProjectAs => {
-                    let file = rfd::FileDialog::new()
-                        .add_filter("VoiceVox project file", &["vvproj"])
-                        .set_directory("/")
-                        .save_file();
-                    if let Some(path) = file {
-                        std::fs::write(
-                            path.clone(),
-                            serde_json::to_string(&self.histories.project).unwrap(),
-                        )
-                        .unwrap();
-                        let path = path.to_str().map(|st| st.to_owned());
-
-                        self.opening_file = path;
-                        self.histories.save();
-                    }
+                    save_operation::save_as(&mut self.histories, &mut self.opening_file);
                 }
                 TopMenuOp::LoadProject => {
-                    let file = rfd::FileDialog::new()
-                        .add_filter("VoiceVox project file", &["vvproj"])
-                        .set_directory("/")
-                        .pick_file();
-                    if let Some(path) = file {
-                        if let Ok(json) = std::fs::read_to_string(path.clone()) {
-                            let vvproj = serde_json::from_str(&json).unwrap();
-                            self.opening_file = path.to_str().map(|st| st.to_owned());
-                            self.histories = history::HistoryManager::from_project(vvproj);
-                        }
-                    }
+                    pollster::block_on(save_operation::load(
+                        &mut self.histories,
+                        &mut self.opening_file,
+                    ));
                 }
                 TopMenuOp::RebootEngine => {}
                 TopMenuOp::KeyConfig => {}
@@ -228,18 +209,11 @@ impl eframe::App for VoiceVoxRust {
                                     .push((Box::new(cmd), self.current_selected_tts_line.clone()));
                             }
                             if let Some(true) = should_play {
-                                if let Some(instant) = self
-                                    .histories
-                                    .get_current_time_stamp(&self.current_selected_tts_line)
                                 {
-                                    let key = (self.current_selected_tts_line.clone(), instant);
+                                    let key = self.current_selected_tts_line.clone();
                                     if let None = self.synthesis_cache.get(&key) {
                                         let (tx, rx) = tokio::sync::oneshot::channel();
-                                        log::debug!(
-                                            "send synthesis request for {} @ {:?}",
-                                            self.current_selected_tts_line,
-                                            instant
-                                        );
+
                                         self.synthesis_cache
                                             .insert(key, SynthesisState::WaitingForSynthesis(rx));
                                         if let Some(ai) = self
@@ -743,6 +717,7 @@ impl eframe::App for VoiceVoxRust {
         }
     }
 }
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
@@ -750,11 +725,13 @@ use wasm_bindgen::prelude::*;
 pub async fn run() {
     console_log::init_with_level(log::Level::Debug);
 }
+
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 async fn main() {
     simple_log::console("debug").unwrap();
-    chara_change_button::init_icon_store().await;
+
+    chara_change_button::init_icon_store("localhost:50021").await;
     let mut app = VoiceVoxRust::new().await;
 
     eframe::run_native(
@@ -765,6 +742,7 @@ async fn main() {
         },
         Box::new(|cc| {
             let server = app.setup(cc);
+            log::debug!("server is {}", server);
             app.server = server.clone();
 
             Box::new(app)

@@ -114,7 +114,7 @@ pub struct AccentPhrase {
 pub struct AccentPhraseInProject {
     pub moras: Vec<MoraInProject>,
     pub accent: i32,
-    pub pause_mora: Option<MoraInProject>,
+    pub pauseMora: Option<MoraInProject>,
     pub isInterrogative: Option<bool>,
 }
 
@@ -126,7 +126,7 @@ impl Serialize for AccentPhraseInProject {
         let mut s = serializer.serialize_struct("AccentPhrase", 4)?;
         s.serialize_field("moras", &self.moras)?;
         s.serialize_field("accent", &self.accent)?;
-        if let Some(pause_mora) = &self.pause_mora {
+        if let Some(pause_mora) = &self.pauseMora {
             s.serialize_field("pause_mora", pause_mora)?;
         } else {
             s.skip_field("pause_mora")?;
@@ -141,7 +141,7 @@ impl From<AccentPhrase> for AccentPhraseInProject {
         Self {
             moras: ap.moras.iter().map(|mora| mora.clone().into()).collect(),
             accent: ap.accent,
-            pause_mora: ap.pause_mora.map(|mora| mora.clone().into()),
+            pauseMora: ap.pause_mora.map(|mora| mora.clone().into()),
             isInterrogative: ap.is_interrogative,
         }
     }
@@ -152,7 +152,7 @@ impl From<AccentPhraseInProject> for AccentPhrase {
         Self {
             moras: ap.moras.iter().map(|mora| mora.clone().into()).collect(),
             accent: ap.accent,
-            pause_mora: ap.pause_mora.map(|mora| mora.clone().into()),
+            pause_mora: ap.pauseMora.map(|mora| mora.clone().into()),
             is_interrogative: ap.isInterrogative,
         }
     }

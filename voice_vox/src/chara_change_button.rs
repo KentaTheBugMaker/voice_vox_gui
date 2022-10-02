@@ -19,7 +19,7 @@ static STYLE_STRUCTURE: once_cell::race::OnceBox<Vec<(String, Vec<(String, i32)>
 pub static STYLE_ID_AND_CHARA_TABLE: once_cell::race::OnceBox<BTreeMap<i32, (String, String)>> =
     once_cell::race::OnceBox::new();
 
-pub(crate) async fn init_icon_store() -> Option<()> {
+pub(crate) async fn init_icon_store(server: &str) -> Option<()> {
     let mut style_structure = Vec::new();
     let mut style_and_chara_table = BTreeMap::new();
 
@@ -27,7 +27,7 @@ pub(crate) async fn init_icon_store() -> Option<()> {
         let mut map = HashMap::new();
 
         let mut speakers = api::Speakers { core_version: None }
-            .call("localhost:50021")
+            .call(server)
             .await
             .ok()?;
         speakers.sort_by(|a, b| a.name.cmp(&b.name));
@@ -38,7 +38,7 @@ pub(crate) async fn init_icon_store() -> Option<()> {
                 speaker_uuid,
                 core_version: None,
             }
-            .call("localhost:50021")
+            .call(server)
             .await
             .ok()?;
 
@@ -76,12 +76,6 @@ pub(crate) async fn init_icon_store() -> Option<()> {
         .ok();
     STYLE_STRUCTURE.set(Box::new(style_structure)).ok();
     ICON_AND_PORTRAIT_STORE.set(Box::new(icons)).ok()
-}
-
-#[tokio::test]
-async fn test_init_icon_store() {
-    init_icon_store().await;
-    ICON_AND_PORTRAIT_STORE.get().unwrap();
 }
 
 pub struct CharaChangeButton(pub i32);
