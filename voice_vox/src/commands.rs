@@ -120,13 +120,13 @@ pub enum BottomPaneCommand {
     Pitch {
         accent_phrase: usize,
         mora: usize,
-        pitch_diff: f32,
+        pitch_diff: f64,
     },
     VowelAndConsonant {
         accent_phrase: usize,
         mora: usize,
-        vowel_diff: Option<f32>,
-        consonant_diff: Option<f32>,
+        vowel_diff: Option<f64>,
+        consonant_diff: Option<f64>,
     },
 }
 
@@ -158,7 +158,7 @@ impl Command for BottomPaneCommand {
                         let insert = crate::api_schema::AccentPhraseInProject {
                             moras: aq.accentPhrases[*index].moras.split_off(*mora),
                             accent: 0,
-                            pause_mora: None,
+                            pauseMora: None,
                             isInterrogative: None,
                         };
                         aq.accentPhrases.insert(*index + 1, insert);
@@ -223,7 +223,7 @@ impl Command for BottomPaneCommand {
                         let insert = crate::api_schema::AccentPhraseInProject {
                             moras: aq.accentPhrases[*index].moras.split_off(*length),
                             accent: 0,
-                            pause_mora: None,
+                            pauseMora: None,
                             isInterrogative: None,
                         };
                         aq.accentPhrases.insert(*index + 1, insert);
@@ -303,12 +303,12 @@ impl Command for BottomPaneCommand {
 }
 
 pub enum AudioQueryEditCommand {
-    SpeedScale(f32),
-    PitchScale(f32),
-    IntonationScale(f32),
-    VolumeScale(f32),
-    PrePhonemeLength(f32),
-    PostPhonemeLength(f32),
+    SpeedScale(f64),
+    PitchScale(f64),
+    IntonationScale(f64),
+    VolumeScale(f64),
+    PrePhonemeLength(f64),
+    PostPhonemeLength(f64),
 }
 
 impl Command for AudioQueryEditCommand {

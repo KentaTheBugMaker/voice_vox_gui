@@ -110,30 +110,14 @@ pub struct AccentPhrase {
 }
 
 #[allow(non_snake_case)]
-#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct AccentPhraseInProject {
     pub moras: Vec<MoraInProject>,
     pub accent: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub pauseMora: Option<MoraInProject>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub isInterrogative: Option<bool>,
-}
-
-impl Serialize for AccentPhraseInProject {
-    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
-    where
-        S: Serializer,
-    {
-        let mut s = serializer.serialize_struct("AccentPhrase", 4)?;
-        s.serialize_field("moras", &self.moras)?;
-        s.serialize_field("accent", &self.accent)?;
-        if let Some(pause_mora) = &self.pauseMora {
-            s.serialize_field("pause_mora", pause_mora)?;
-        } else {
-            s.skip_field("pause_mora")?;
-        }
-        s.serialize_field("isInterrogative", &self.isInterrogative.unwrap_or(false))?;
-        s.end()
-    }
 }
 
 impl From<AccentPhrase> for AccentPhraseInProject {

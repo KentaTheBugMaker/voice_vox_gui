@@ -246,7 +246,7 @@ pub fn create_bottom_pane(
                                         let res = ui.add(slider);
 
                                         if (res.clicked() | res.drag_released())
-                                            & ((pitch - mora.pitch).abs() > f32::EPSILON)
+                                            & ((pitch - mora.pitch).abs() > f64::EPSILON)
                                         {
                                             //emit signal.
                                             rt = Some(BottomPaneCommand::Pitch {
@@ -290,7 +290,7 @@ pub fn create_bottom_pane(
 
                                             let vowel_diff = if (res.clicked()
                                                 | res.drag_released())
-                                                & ((vowel - mora.vowelLength).abs() > f32::EPSILON)
+                                                & ((vowel - mora.vowelLength).abs() > f64::EPSILON)
                                             {
                                                 log::debug!("vowel {}", vowel);
                                                 Some(vowel - mora.vowelLength)
@@ -300,7 +300,7 @@ pub fn create_bottom_pane(
                                             let consonant_diff = if (res.clicked()
                                                 | res.drag_released())
                                                 & ((consonant - prev_consonant).abs()
-                                                    > f32::EPSILON)
+                                                    > f64::EPSILON)
                                             {
                                                 log::debug!("consonant {}", consonant);
                                                 Some(consonant - prev_consonant)
@@ -326,7 +326,7 @@ pub fn create_bottom_pane(
                                             let res = ui.add(slider);
 
                                             if (res.clicked() | res.drag_released())
-                                                & ((vowel - mora.vowelLength).abs() > f32::EPSILON)
+                                                & ((vowel - mora.vowelLength).abs() > f64::EPSILON)
                                             {
                                                 //emit signal.
                                                 rt = Some(BottomPaneCommand::VowelAndConsonant {
@@ -359,9 +359,9 @@ pub fn create_bottom_pane(
 }
 
 pub struct TwoNotchSlider<'a> {
-    pub a: &'a mut f32,
-    pub b: &'a mut f32,
-    pub range: RangeInclusive<f32>,
+    pub a: &'a mut f64,
+    pub b: &'a mut f64,
+    pub range: RangeInclusive<f64>,
     pub text: String,
 }
 
@@ -415,8 +415,8 @@ impl<'a> TwoNotchSlider<'a> {
         let height = rail_rect.height();
         let a = (*self.a - self.range.start()) / (self.range.end() - self.range.start());
         let b = (*self.b - self.range.start()) / (self.range.end() - self.range.start());
-        let a = height - a * height;
-        let b = height - b * height;
+        let a = height - a as f32 * height;
+        let b = height - b as f32 * height;
 
         let a_center_x = rail_rect.left() - 0.75 * notch_size;
         let b_center_y = rail_rect.right() + 0.75 * notch_size;
