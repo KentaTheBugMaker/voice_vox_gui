@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 iced={git="https://github.com/t18b219k/iced.git",branch="master"}
-voice_vox_api={git="https://github.com/t18b219k/voiced_vox_gui.git",branch="master"}
+iced_native={git="https://github.com/t18b219k/iced.git",branch="master"}
+voice_vox_api="0.13.3"
