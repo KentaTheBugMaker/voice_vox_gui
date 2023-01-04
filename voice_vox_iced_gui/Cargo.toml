@@ -1,0 +1,10 @@
+[package]
+name = "voice_vox_iced_gui"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+iced={git="https://github.com/t18b219k/iced.git",branch="master"}
+voice_vox_api={git="https://github.com/t18b219k/voiced_vox_gui.git",branch="master"}
