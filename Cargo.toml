@@ -1,2 +1,3 @@
 [workspace]
 members=["voice_vox_api","voice_vox_iced_gui"]
+resolver="2"

@@ -5,7 +5,6 @@ edition = "2021"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 description ="VoiceVox Engine openapi rust binding."
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]

@@ -1,10 +1,8 @@
 //! definition of VoiceVox openapi schema section.
 #![allow(dead_code)]
 
+use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
-
-use serde::ser::SerializeStruct;
-use serde::{Deserialize, Serialize, Serializer};
 
 /// this is Used in all around.
 ///
