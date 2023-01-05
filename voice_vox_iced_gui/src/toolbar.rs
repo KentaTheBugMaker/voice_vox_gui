@@ -20,7 +20,7 @@ pub enum ToolBarKind {
     LoadText,
     Blank,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ToolBarConfig(Vec<ToolBarKind>);
 impl Default for ToolBarConfig {
     fn default() -> Self {
@@ -163,6 +163,7 @@ pub enum ConfigureMessage {
 }
 
 pub(crate) fn build_configure_ui<'a>(
+    prev_config: &'a ToolBarConfig,
     config: &'a ToolBarConfig,
     selected_tool: &'a ToolBarKind,
 ) -> widget::Column<'a, crate::Message, Renderer> {
@@ -170,14 +171,26 @@ pub(crate) fn build_configure_ui<'a>(
         .push(row(vec![
             Text::new("ツールバーのカスタマイズ").into(),
             widget::horizontal_space(Length::Fill).into(),
-            button(Text::new("デフォルトに戻す"))
-                .on_press(crate::Message::ToolBarConfig(
-                    ConfigureMessage::RestoreDefault,
-                ))
-                .into(),
-            button(Text::new("保存"))
-                .on_press(crate::Message::ToolBarConfig(ConfigureMessage::Save))
-                .into(),
+            {
+                let button = button(Text::new("デフォルトに戻す"));
+                if config != &ToolBarConfig::default() {
+                    button.on_press(crate::Message::ToolBarConfig(
+                        ConfigureMessage::RestoreDefault,
+                    ))
+                } else {
+                    button
+                }
+                .into()
+            },
+            {
+                let button = button(Text::new("保存"));
+                if config != prev_config {
+                    button.on_press(crate::Message::ToolBarConfig(ConfigureMessage::Save))
+                } else {
+                    button
+                }
+                .into()
+            },
             button(Text::new("X"))
                 .on_press(crate::Message::ToolBarConfig(ConfigureMessage::Exit))
                 .into(),

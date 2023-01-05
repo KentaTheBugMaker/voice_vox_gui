@@ -3,7 +3,7 @@ mod toolbar;
 use toolbar::{build_configure_ui, ConfigureMessage, ToolBarConfig, ToolBarKind};
 
 use iced::{
-    widget::{self, column, Button, Column, Row, Text},
+    widget::{self, column, Button, Column, PickList, Row, Text},
     Application, Command, Element, Settings, Theme,
 };
 use serde::{Deserialize, Serialize};
@@ -17,11 +17,10 @@ fn main() -> iced::Result {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Message {
-    FileMenuOpen,
-    EngineMenuOpen,
-    SettingsMenuOpen,
+    FileMenuOpen(FileMenu),
+    EngineMenuOpen(EngineMenu),
+    SettingsMenuOpen(SettingsMenu),
     HelpMenuOpen,
-    OpenToolBarConfigUi,
     ToolBar(ToolBarKind),
     Loaded(Result<VoiceVoxState, LoadError>),
     Saved(Result<(), SaveError>),
@@ -87,17 +86,30 @@ impl Application for VoiceVox {
 
                 let command = Command::none();
 
-                if !saved {
-                    state.dirty = true;
-                }
                 match message {
-                    Message::FileMenuOpen => todo!(),
-                    Message::EngineMenuOpen => todo!(),
-                    Message::SettingsMenuOpen => todo!(),
-                    Message::HelpMenuOpen => todo!(),
-                    Message::ToolBar(_) => todo!(),
+                    Message::FileMenuOpen(file_menu) => {}
+                    Message::EngineMenuOpen(_) => {}
+                    Message::SettingsMenuOpen(settings_menu) => match settings_menu {
+                        SettingsMenu::KeyConfig => todo!(),
+                        SettingsMenu::ToolbarConfig => {
+                            state.opening_page = Page::ToolBarConfig;
+                            state.toolbar_ui_temp_config =
+                                state.persistence.tool_bar_config.clone();
+                        }
+                        SettingsMenu::ReorderCharacter => todo!(),
+                        SettingsMenu::DefaultStyle => todo!(),
+                        SettingsMenu::Dictionary => todo!(),
+                        SettingsMenu::Option => todo!(),
+                    },
+                    Message::HelpMenuOpen => {}
+                    Message::ToolBar(_) => {}
                     Message::Loaded(_) => {}
-                    Message::Saved(_) => {}
+                    Message::Saved(result) => {
+                        if let Ok(()) = result {
+                            saved = true;
+                            state.saving = false;
+                        }
+                    }
                     Message::ToolBarConfig(message) => match message {
                         ConfigureMessage::Toggle(kind, false) => {
                             state.toolbar_ui_temp_config.remove(kind)
@@ -133,11 +145,12 @@ impl Application for VoiceVox {
                             state.configure_ui_selected_tool = kind;
                         }
                     },
-                    Message::OpenToolBarConfigUi => {
-                        state.opening_page = Page::ToolBarConfig;
-                        state.toolbar_ui_temp_config = state.persistence.tool_bar_config.clone();
-                    }
                 }
+
+                if !saved {
+                    state.dirty = true;
+                }
+
                 let save = if state.dirty && !state.saving {
                     state.dirty = false;
                     state.saving = true;
@@ -157,10 +170,51 @@ impl Application for VoiceVox {
             let vbox = Column::new();
             // menubar
             let top_bar = widget::Row::new()
-                .push(Button::new(Text::new("File")).on_press(Message::FileMenuOpen))
-                .push(Button::new(Text::new("Engine")).on_press(Message::EngineMenuOpen))
-                .push(Button::new(Text::new("Settings")).on_press(Message::SettingsMenuOpen))
-                .push(Button::new(Text::new("Help")).on_press(Message::HelpMenuOpen));
+                .push(
+                    PickList::new(
+                        if state.opening_page == Page::Main {
+                            enumerate_file_menu()
+                        } else {
+                            vec![]
+                        },
+                        None,
+                        Message::FileMenuOpen,
+                    )
+                    .placeholder("ファイル".to_owned()),
+                )
+                .push(
+                    PickList::new(
+                        if state.opening_page == Page::Main {
+                            enumerate_engine_menu()
+                        } else {
+                            vec![]
+                        },
+                        None,
+                        Message::EngineMenuOpen,
+                    )
+                    .placeholder("エンジン".to_owned()),
+                )
+                .push(
+                    PickList::new(
+                        if state.opening_page == Page::Main {
+                            enumerate_settings_menu()
+                        } else {
+                            vec![]
+                        },
+                        None,
+                        Message::SettingsMenuOpen,
+                    )
+                    .placeholder("設定".to_owned()),
+                )
+                .push({
+                    let button = Button::new(Text::new("Help"));
+                    if state.opening_page == Page::Main {
+                        button.on_press(Message::HelpMenuOpen)
+                    } else {
+                        button
+                    }
+                });
+
             let top_bar = if let Self::Loaded(state) = self {
                 top_bar.push(Text::new(
                     state.persistence.get_tab_file_name().unwrap_or_default(),
@@ -168,20 +222,23 @@ impl Application for VoiceVox {
             } else {
                 top_bar
             };
-            //main page
+
             let page = match state.opening_page {
                 Page::Main => {
-                    // tab bar.
+                    // tab bar
                     let mut tab_bar = Row::new();
+
                     column(vec![
                         state.persistence.tool_bar_config.build_toolbar().into(),
                         tab_bar.into(),
                     ])
                 }
                 Page::ToolBarConfig => build_configure_ui(
+                    &state.persistence.tool_bar_config,
                     &state.toolbar_ui_temp_config,
                     &state.configure_ui_selected_tool,
                 ),
+                Page::Help => column(vec![]),
             };
 
             vbox.push(top_bar).push(page).into()
@@ -190,7 +247,7 @@ impl Application for VoiceVox {
         }
     }
 }
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 struct State {
     dirty: bool,
     saving: bool,
@@ -319,9 +376,98 @@ impl VoiceVoxState {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum Page {
     #[default]
     Main,
     ToolBarConfig,
+    Help,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+enum FileMenu {
+    ExportAll,
+    ExportSelected,
+    ExportConnected,
+    ExportTextConnected,
+    ImportText,
+    NewProject,
+    SaveProject,
+    SaveProjectAs,
+    LoadProject,
+}
+impl std::fmt::Display for FileMenu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            FileMenu::ExportAll => "音声書き出し",
+            FileMenu::ExportSelected => "一つだけ書き出し",
+            FileMenu::ExportConnected => "音声を繋げて書き出し",
+            FileMenu::ExportTextConnected => "テキストを繋げて書き出し",
+            FileMenu::ImportText => "テキスト読み込み",
+            FileMenu::NewProject => "新規プロジェクト",
+            FileMenu::SaveProject => "プロジェクトを上書き保存",
+            FileMenu::SaveProjectAs => "プロジェクトを名前を付けて保存",
+            FileMenu::LoadProject => "プロジェクト読み込み",
+        };
+        write!(f, "{}", text)
+    }
+}
+fn enumerate_file_menu() -> Vec<FileMenu> {
+    use FileMenu::*;
+    vec![
+        ExportAll,
+        ExportSelected,
+        ExportConnected,
+        ExportTextConnected,
+        ImportText,
+        NewProject,
+        SaveProject,
+        SaveProjectAs,
+        LoadProject,
+    ]
+}
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
+enum EngineMenu {
+    Reboot,
+}
+impl std::fmt::Display for EngineMenu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "再起動")
+    }
+}
+fn enumerate_engine_menu() -> Vec<EngineMenu> {
+    vec![EngineMenu::Reboot]
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SettingsMenu {
+    KeyConfig,
+    ToolbarConfig,
+    ReorderCharacter,
+    DefaultStyle,
+    Dictionary,
+    Option,
+}
+impl std::fmt::Display for SettingsMenu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            SettingsMenu::KeyConfig => "キー割り当て",
+            SettingsMenu::ToolbarConfig => "ツールバーのカスタマイズ",
+            SettingsMenu::ReorderCharacter => "キャラクターの並び替え・試聴",
+            SettingsMenu::DefaultStyle => "デフォルトスタイル",
+            SettingsMenu::Dictionary => "読み方&アクセント辞典",
+            SettingsMenu::Option => "オプション",
+        };
+        write!(f, "{}", text)
+    }
+}
+fn enumerate_settings_menu() -> Vec<SettingsMenu> {
+    use SettingsMenu::*;
+    vec![
+        KeyConfig,
+        ToolbarConfig,
+        ReorderCharacter,
+        DefaultStyle,
+        Dictionary,
+        Option,
+    ]
 }
