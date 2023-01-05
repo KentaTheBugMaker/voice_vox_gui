@@ -1,13 +1,18 @@
-mod action_bar_message;
-use action_bar_message::{ToolBarConfig, ToolBarKind};
+mod toolbar;
+
+use toolbar::{build_configure_ui, ConfigureMessage, ToolBarConfig, ToolBarKind};
 
 use iced::{
-    widget::{self, Button, Column, Row, Text},
+    widget::{self, column, Button, Column, Row, Text},
     Application, Command, Element, Settings, Theme,
 };
 use serde::{Deserialize, Serialize};
+
 fn main() -> iced::Result {
-    VoiceVox::run(Settings::default())
+    VoiceVox::run(Settings {
+        default_font: Some(include_bytes!("../font/NotoSansCJKjp-Regular.otf")),
+        ..Default::default()
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -16,9 +21,11 @@ pub(crate) enum Message {
     EngineMenuOpen,
     SettingsMenuOpen,
     HelpMenuOpen,
+    OpenToolBarConfigUi,
     ToolBar(ToolBarKind),
     Loaded(Result<VoiceVoxState, LoadError>),
     Saved(Result<(), SaveError>),
+    ToolBarConfig(ConfigureMessage),
 }
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 struct VoiceVoxState {
@@ -63,6 +70,9 @@ impl Application for VoiceVox {
                             dirty: false,
                             saving: false,
                             persistence: state,
+                            opening_page: Page::ToolBarConfig,
+                            configure_ui_selected_tool: ToolBarKind::default(),
+                            toolbar_ui_temp_config: ToolBarConfig::default(),
                         });
                     }
                     Message::Loaded(Err(_)) => {
@@ -80,7 +90,54 @@ impl Application for VoiceVox {
                 if !saved {
                     state.dirty = true;
                 }
-
+                match message {
+                    Message::FileMenuOpen => todo!(),
+                    Message::EngineMenuOpen => todo!(),
+                    Message::SettingsMenuOpen => todo!(),
+                    Message::HelpMenuOpen => todo!(),
+                    Message::ToolBar(_) => todo!(),
+                    Message::Loaded(_) => {}
+                    Message::Saved(_) => {}
+                    Message::ToolBarConfig(message) => match message {
+                        ConfigureMessage::Toggle(kind, false) => {
+                            state.toolbar_ui_temp_config.remove(kind)
+                        }
+                        ConfigureMessage::Toggle(kind, true) => {
+                            state.toolbar_ui_temp_config.insert(kind)
+                        }
+                        ConfigureMessage::RestoreDefault => {
+                            state.toolbar_ui_temp_config = Default::default();
+                        }
+                        ConfigureMessage::Save => {
+                            state.persistence.tool_bar_config =
+                                state.toolbar_ui_temp_config.clone();
+                            state.dirty = true;
+                        }
+                        ConfigureMessage::Exit => {
+                            state.opening_page = Page::Main;
+                        }
+                        ConfigureMessage::MoveLeft => {
+                            state
+                                .toolbar_ui_temp_config
+                                .move_left(state.configure_ui_selected_tool);
+                        }
+                        ConfigureMessage::MoveRight => {
+                            state
+                                .toolbar_ui_temp_config
+                                .move_right(state.configure_ui_selected_tool);
+                        }
+                        ConfigureMessage::Remove => state
+                            .toolbar_ui_temp_config
+                            .remove(state.configure_ui_selected_tool),
+                        ConfigureMessage::Select(kind) => {
+                            state.configure_ui_selected_tool = kind;
+                        }
+                    },
+                    Message::OpenToolBarConfigUi => {
+                        state.opening_page = Page::ToolBarConfig;
+                        state.toolbar_ui_temp_config = state.persistence.tool_bar_config.clone();
+                    }
+                }
                 let save = if state.dirty && !state.saving {
                     state.dirty = false;
                     state.saving = true;
@@ -111,14 +168,23 @@ impl Application for VoiceVox {
             } else {
                 top_bar
             };
+            //main page
+            let page = match state.opening_page {
+                Page::Main => {
+                    // tab bar.
+                    let mut tab_bar = Row::new();
+                    column(vec![
+                        state.persistence.tool_bar_config.build_toolbar().into(),
+                        tab_bar.into(),
+                    ])
+                }
+                Page::ToolBarConfig => build_configure_ui(
+                    &state.toolbar_ui_temp_config,
+                    &state.configure_ui_selected_tool,
+                ),
+            };
 
-            // tab bar.
-            let mut tab_bar = Row::new();
-
-            vbox.push(top_bar)
-                .push(state.persistence.tool_bar_config.build_toolbar())
-                .push(tab_bar)
-                .into()
+            vbox.push(top_bar).push(page).into()
         } else {
             Row::new().into()
         }
@@ -128,6 +194,9 @@ impl Application for VoiceVox {
 struct State {
     dirty: bool,
     saving: bool,
+    opening_page: Page,
+    configure_ui_selected_tool: ToolBarKind,
+    toolbar_ui_temp_config: ToolBarConfig,
     persistence: VoiceVoxState,
 }
 
@@ -248,4 +317,11 @@ impl VoiceVoxState {
 
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Default)]
+pub enum Page {
+    #[default]
+    Main,
+    ToolBarConfig,
 }
