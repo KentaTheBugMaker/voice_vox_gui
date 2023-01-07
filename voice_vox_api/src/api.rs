@@ -25,7 +25,7 @@ fn client() -> &'static reqwest::Client {
 ///
 /// クエリの初期値を得ます。ここで得られたクエリはそのまま音声合成に利用できます。各値の意味はSchemasを参照してください。
 ///
-
+#[derive(Debug, Clone)]
 pub struct AudioQuery {
     pub text: String,
     pub speaker: i32,
@@ -58,6 +58,7 @@ impl Api for AudioQuery {
 /// クエリの初期値を得ます。ここで得られたクエリはそのまま音声合成に利用できます。各値の意味は`Schemas`を参照してください。
 ///
 ///
+#[derive(Debug, Clone)]
 pub struct AudioQueryFromPreset {
     pub text: String,
     pub preset_id: i32,
@@ -104,6 +105,7 @@ pub trait Api {
 /// * アクセント位置を`'`で指定する。全てのアクセント句にはアクセント位置を1つ指定する必要がある。
 /// * アクセント句末に`？`(全角)を入れることにより疑問文の発音ができる。
 ///
+#[derive(Debug, Clone)]
 pub struct AccentPhrases {
     pub text: String,
     pub speaker: i32,
@@ -157,6 +159,7 @@ impl Api for AccentPhrases {
 }
 
 ///アクセント句から音高を得る
+#[derive(Debug, Clone)]
 pub struct MoraData {
     //in query
     pub speaker: i32,
@@ -187,6 +190,7 @@ impl Api for MoraData {
 }
 
 /// # アクセント句から音素長を得る
+#[derive(Debug, Clone)]
 pub struct MoraLength {
     // in query.
     pub speaker: i32,
@@ -217,6 +221,7 @@ impl Api for MoraLength {
 }
 
 /// # アクセント句から音素長を得る
+#[derive(Debug, Clone)]
 pub struct MoraPitch {
     // in query.
     pub speaker: i32,
@@ -246,6 +251,7 @@ impl Api for MoraPitch {
 }
 
 /// # 音声合成する
+#[derive(Debug, Clone)]
 pub struct Synthesis {
     // in query
     pub speaker: i32,
@@ -280,6 +286,7 @@ impl Api for Synthesis {
 }
 
 /// # 音声合成する（キャンセル可能）
+#[derive(Debug, Clone)]
 pub struct CancellableSynthesis {
     // in query
     pub speaker: i32,
@@ -311,6 +318,7 @@ impl Api for CancellableSynthesis {
 /// # まとめて音声合成する
 ///
 /// 複数のwavがzipでまとめられて返されます.
+#[derive(Debug, Clone)]
 pub struct MultiSynthesis {
     // in query
     pub speaker: i32,
@@ -344,6 +352,7 @@ impl Api for MultiSynthesis {
 /// # 2人の話者でモーフィングした音声を合成する
 ///
 /// 指定された2人の話者で音声を合成、指定した割合でモーフィングした音声を得ます。 モーフィングの割合はmorph_rateで指定でき、0.0でベースの話者、1.0でターゲットの話者に近づきます。
+#[derive(Debug, Clone)]
 pub struct SynthesisMorphing {
     // in query
     pub base_speaker: i32,
@@ -385,6 +394,7 @@ impl Api for SynthesisMorphing {
 /// base64エンコードされたwavデータを一纏めにし、wavファイルで返します。
 /// 返されるwavはbase64デコードを行います.
 ///
+#[derive(Debug, Clone)]
 pub struct ConnectWaves {
     pub waves: Vec<Vec<u8>>,
 }
@@ -413,6 +423,7 @@ impl Api for ConnectWaves {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Presets;
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -433,6 +444,7 @@ impl Api for Presets {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Version;
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -453,6 +465,7 @@ impl Api for Version {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct CoreVersions;
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -473,6 +486,7 @@ impl Api for CoreVersions {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Speakers {
     pub core_version: CoreVersion,
 }
@@ -497,6 +511,7 @@ impl Api for Speakers {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SpeakerInfo {
     pub speaker_uuid: String,
     pub core_version: CoreVersion,
@@ -527,6 +542,7 @@ impl Api for SpeakerInfo {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SupportedDevices {
     pub core_version: CoreVersion,
 }
@@ -565,12 +581,25 @@ impl AddCoreVersion for reqwest::RequestBuilder {
     }
 }
 
+/// Clone is implemented but Io and Reqwest errors will converted to Unknown error.
+///
 #[derive(Debug)]
 pub enum APIError {
     Validation(HttpValidationError),
     Io(std::io::Error),
     Reqwest(reqwest::Error),
     Unknown,
+}
+
+impl Clone for APIError {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Validation(arg0) => Self::Validation(arg0.clone()),
+            Self::Io(_) => Self::Unknown,
+            Self::Reqwest(_) => Self::Unknown,
+            Self::Unknown => Self::Unknown,
+        }
+    }
 }
 
 impl From<reqwest::Error> for APIError {
@@ -590,6 +619,8 @@ impl From<StatusCode> for APIError {
         APIError::Unknown
     }
 }
+
+#[derive(Debug, Clone)]
 pub struct DownloadableLibraries;
 
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
@@ -615,6 +646,7 @@ impl Api for DownloadableLibraries {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct InitializeSpeaker {
     pub speaker: i32,
     pub core_version: CoreVersion,
@@ -640,6 +672,7 @@ impl Api for InitializeSpeaker {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct IsInitializedSpeaker {
     pub speaker: i32,
     pub core_version: CoreVersion,
@@ -665,6 +698,7 @@ impl Api for IsInitializedSpeaker {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct EngineManifest;
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -692,6 +726,7 @@ impl Api for EngineManifest {
 ///
 /// This result contains word UUID and definition.
 ///
+#[derive(Debug, Clone)]
 pub struct UserDict;
 #[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
 #[cfg_attr(not(target_arch = "wasm32"), async_trait)]
@@ -716,6 +751,7 @@ impl Api for UserDict {
 ///
 /// This result returns word UUID.
 ///
+#[derive(Debug, Clone)]
 pub struct UserDictWord {
     ///言葉の表層形
     pub surface: String,
@@ -763,6 +799,7 @@ impl Api for UserDictWord {
 
 /// rewrite word on user dictionary.
 ///
+#[derive(Debug, Clone)]
 pub struct RewriteUserDictWord {
     /// word uuid
     pub uuid: String,
@@ -813,6 +850,7 @@ impl Api for RewriteUserDictWord {
 /// delete word from user dictionary.
 ///
 ///
+#[derive(Debug, Clone)]
 pub struct DeleteUserDictWord {
     /// word uuid
     pub uuid: String,
@@ -838,6 +876,7 @@ impl Api for DeleteUserDictWord {
 
 /// import user dictionary.
 ///
+#[derive(Debug, Clone)]
 pub struct ImportUserDict {
     pub over_ride: bool,
     pub dictionary: HashMap<String, api_schema::UserDictWord>,

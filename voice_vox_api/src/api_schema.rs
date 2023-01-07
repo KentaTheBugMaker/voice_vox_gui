@@ -213,13 +213,13 @@ pub struct AccentPhrasesResponse {
     pub accent_phrases: Vec<AccentPhrase>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ParseKanaBadRequest {
     pub text: String,
     pub error_name: String,
     pub error_args: String,
 }
-
+#[derive(Debug, Clone)]
 pub enum ErrorName {
     UnknownText,
     AccentTop,
@@ -231,7 +231,7 @@ pub enum ErrorName {
 }
 
 #[allow(non_snake_case, unused_variables)]
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Preset {
     pub id: i32,
     pub name: String,
@@ -245,7 +245,7 @@ pub struct Preset {
     pub postPhonemeLength: f64,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Speaker {
     /// character name
     pub name: String,
@@ -256,7 +256,7 @@ pub struct Speaker {
     pub version: Option<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct SpeakerStyle {
     /// emotion style.
     pub name: String,
@@ -264,7 +264,7 @@ pub struct SpeakerStyle {
     pub id: i32,
 }
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 pub struct StyleInfoRaw {
     pub(crate) id: i32,
     /// base64
@@ -302,7 +302,7 @@ impl From<StyleInfo> for StyleInfoRaw {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpeakerInfo {
     /// markdown format.
     pub policy: String,
@@ -311,7 +311,7 @@ pub struct SpeakerInfo {
     pub style_infos: Vec<StyleInfo>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct SpeakerInfoRaw {
     pub(crate) policy: String,
     /// base64
@@ -349,7 +349,7 @@ impl From<SpeakerInfo> for SpeakerInfoRaw {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StyleInfo {
     /// style_id or speaker. you can put into below API fields.
     /// * AudioQuery.speaker
@@ -369,7 +369,7 @@ pub struct StyleInfo {
     pub voice_samples: Vec<Vec<u8>>,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct SupportedDevices {
     /// always support
     pub cpu: bool,
@@ -379,7 +379,7 @@ pub struct SupportedDevices {
     pub dml: Option<bool>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DownloadableLibraries {
     pub download_url: String,
     pub bytes: usize,
@@ -387,7 +387,7 @@ pub struct DownloadableLibraries {
     pub speaker_info: SpeakerInfo,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct DownloadableLibrariesRaw {
     download_url: String,
     bytes: usize,
@@ -409,7 +409,7 @@ impl TryFrom<DownloadableLibrariesRaw> for DownloadableLibraries {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EngineManifestRaw {
     manifest_version: String,
     name: String,
@@ -424,6 +424,7 @@ pub struct EngineManifestRaw {
     downloadable_libraries_url: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct EngineManifest {
     pub manifest_version: String,
     pub name: String,
@@ -475,14 +476,14 @@ impl From<EngineManifest> for EngineManifestRaw {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UpdateInfo {
     version: String,
     descriptions: Vec<String>,
     contributers: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LicenseInfo {
     name: String,
     version: String,
@@ -490,7 +491,7 @@ pub struct LicenseInfo {
     text: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserDictWord {
     surface: String,
     priority: i32,
