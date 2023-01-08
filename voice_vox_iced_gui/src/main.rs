@@ -1,8 +1,8 @@
 mod main_page;
+mod menu_with_icon;
 mod project;
 mod toolbar;
 use std::collections::{BTreeMap, HashMap};
-use std::hash::Hash;
 
 use iced::widget::pane_grid::{self, State as PaneGridState};
 use iced::{
