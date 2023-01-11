@@ -1,20 +1,22 @@
+mod history;
 mod main_page;
-mod menu_with_icon;
 mod project;
 mod toolbar;
+
 use std::collections::{BTreeMap, HashMap};
 
+use history::{Diff, History};
 use iced::widget::pane_grid::{self, State as PaneGridState};
 use iced::{
     widget::{self, column, Button, Column, PickList, Row, Text},
     Application, Command, Element, Settings, Theme,
 };
 use main_page::InTabPane;
-use project::AudioItem;
+
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use toolbar::{build_configure_ui, ConfigureMessage, ToolBarConfig, ToolBarKind};
-use voice_vox_api::api::{Api, SpeakerInfo};
+use voice_vox_api::api::{APIError, SpeakerInfo};
 fn main() -> iced::Result {
     VoiceVox::run(Settings {
         default_font: Some(include_bytes!("../font/NotoSansCJKjp-Regular.otf")),
@@ -37,15 +39,22 @@ pub(crate) enum Message {
     TabSelect(usize),
     TabClose(usize),
     EditText(String, String),
+    SpeedChange(String, f64),
+    PitchChange(String, f64),
+    IntonationChange(String, f64),
+    VolumeChange(String, f64),
+    PrePhonemeLengthChange(String, f64),
+    PostPhonemeLengthChange(String, f64),
+    QueryParameterCommit,
     APICall(APICall),
     APIResult(APIResult),
 }
 #[derive(Debug, Clone)]
 pub(crate) enum APIResult {
-    Speakers(<voice_vox_api::api::Speakers as voice_vox_api::api::Api>::Response),
+    Speakers(Result<Vec<voice_vox_api::api_schema::Speaker>, APIError>),
     SpeakerInfo(
         voice_vox_api::api_schema::Speaker,
-        <voice_vox_api::api::SpeakerInfo as voice_vox_api::api::Api>::Response,
+        Result<voice_vox_api::api_schema::SpeakerInfo, APIError>,
     ),
 }
 
@@ -99,10 +108,10 @@ impl Application for VoiceVox {
                 // character and other split.
                 let configure = pane_grid::Configuration::Split {
                     axis: pane_grid::Axis::Horizontal,
-                    ratio: 0.5,
+                    ratio: 0.4,
                     a: Box::new(pane_grid::Configuration::Split {
                         axis: pane_grid::Axis::Vertical,
-                        ratio: 0.5,
+                        ratio: 0.2,
                         a: Box::new(pane_grid::Configuration::Pane(InTabPane::CharacterPane)),
                         b: Box::new(pane_grid::Configuration::Split {
                             axis: pane_grid::Axis::Vertical,
@@ -111,10 +120,16 @@ impl Application for VoiceVox {
                             b: Box::new(pane_grid::Configuration::Pane(InTabPane::ParameterPane)),
                         }),
                     }),
-                    b: Box::new(pane_grid::Configuration::Pane(InTabPane::BottomPane)),
+                    b: Box::new(pane_grid::Configuration::Split {
+                        axis: pane_grid::Axis::Vertical,
+                        ratio: 0.5,
+                        a: Box::new(pane_grid::Configuration::Pane(InTabPane::BottomPane)),
+                        b: Box::new(pane_grid::Configuration::Pane(InTabPane::HistroyPane)),
+                    }),
                 };
                 match message {
                     Message::Loaded(Ok(state)) => {
+                        let buffer_count = state.tabs.len();
                         *self = Self::Loaded(State {
                             dirty: false,
                             saving: false,
@@ -127,6 +142,7 @@ impl Application for VoiceVox {
                             portrait_and_names: HashMap::new(),
                             style_id_uuid_table: BTreeMap::new(),
                             icons: BTreeMap::new(),
+                            tracking_buffer: vec![History::new(); buffer_count],
                         });
                     }
                     Message::Loaded(Err(_)) => {
@@ -142,6 +158,7 @@ impl Application for VoiceVox {
                             portrait_and_names: HashMap::new(),
                             style_id_uuid_table: BTreeMap::new(),
                             icons: BTreeMap::new(),
+                            tracking_buffer: Vec::new(),
                         });
                     }
                     _ => {}
@@ -163,7 +180,11 @@ impl Application for VoiceVox {
                         FileMenu::ExportConnected => todo!(),
                         FileMenu::ExportTextConnected => todo!(),
                         FileMenu::ImportText => todo!(),
-                        FileMenu::NewProject => state.persistence.tabs.push(TabContext::default()),
+                        FileMenu::NewProject => {
+                            state.persistence.tabs.push(TabContext::default());
+                            state.tracking_buffer.push(History::new());
+                        }
+
                         FileMenu::SaveProject => todo!(),
                         FileMenu::SaveProjectAs => todo!(),
                         FileMenu::LoadProject => todo!(),
@@ -182,7 +203,42 @@ impl Application for VoiceVox {
                         SettingsMenu::Option => todo!(),
                     },
                     Message::HelpMenuOpen => {}
-                    Message::ToolBar(_) => {}
+                    Message::ToolBar(tbk) => match tbk {
+                        ToolBarKind::ContinuosPlay => todo!(),
+                        ToolBarKind::Stop => todo!(),
+                        ToolBarKind::ExportSelected => todo!(),
+                        ToolBarKind::ExportAll => todo!(),
+                        ToolBarKind::ConnectExport => todo!(),
+                        ToolBarKind::SaveProject => todo!(),
+                        ToolBarKind::Undo => {
+                            if let Some((history, tab_ctx)) =
+                                state.persistence.viewing_tab.and_then(|tab_id| {
+                                    state
+                                        .tracking_buffer
+                                        .get_mut(tab_id)
+                                        .zip(state.persistence.tabs.get_mut(tab_id))
+                                })
+                            {
+                                println!("undo");
+                                history.undo(tab_ctx);
+                            }
+                        }
+                        ToolBarKind::Redo => {
+                            if let Some((history, tab_ctx)) =
+                                state.persistence.viewing_tab.and_then(|tab_id| {
+                                    state
+                                        .tracking_buffer
+                                        .get_mut(tab_id)
+                                        .zip(state.persistence.tabs.get_mut(tab_id))
+                                })
+                            {
+                                println!("redo ");
+                                history.redo(tab_ctx);
+                            }
+                        }
+                        ToolBarKind::LoadText => todo!(),
+                        ToolBarKind::Blank => todo!(),
+                    },
                     Message::Loaded(_) => {}
                     Message::Saved(result) => {
                         if let Ok(()) = result {
@@ -234,54 +290,50 @@ impl Application for VoiceVox {
                     }
                     Message::TabClose(tab_id) => {
                         let tab_ctx = state.persistence.tabs.remove(tab_id);
+                        state.tracking_buffer.remove(tab_id);
 
-                        /*
                         let save = Command::perform(
                             tokio::fs::write(
                                 tab_ctx.file_name,
                                 serde_json::ser::to_vec_pretty(&tab_ctx.project).unwrap(),
                             ),
-                            Message::Saved,
+                            |x| Message::Saved(x.map_err(|_| SaveError::Write)),
                         );
-                        */
+                        cmd_buff.push(save);
                     }
                     Message::EditText(key, text) => {
-                        if let Some(tab_ctx) = state
-                            .persistence
-                            .tabs
-                            .get_mut(state.persistence.viewing_tab.unwrap_or(0))
-                        {
-                            if let Some(audio_item) = tab_ctx.project.audioItems.get_mut(&key) {
-                                audio_item.text = text;
+                        if let Some(vt) = state.persistence.viewing_tab {
+                            if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
+                                state.tracking_buffer[vt].apply(
+                                    Diff::TextChanged {
+                                        audio_item_key: key,
+                                        before: String::new(),
+                                        after: text,
+                                    },
+                                    tab_ctx,
+                                );
                             }
                         }
                     }
-                    Message::APICall(request) => match request {
-                        APICall::Speakers(_) => {}
-                        APICall::SpeakerInfo(speaker, si) => {
-                            let si = Box::new(si);
-                            let si = Box::leak(si);
-
-                            return Command::perform(si.call(SERVER.get().unwrap()), |result| {
-                                Message::APIResult(APIResult::SpeakerInfo(speaker, result))
-                            });
-                        }
-                    },
+                    Message::APICall(_request) => {}
                     Message::APIResult(result) => match result {
                         APIResult::Speakers(speakers) => {
                             println!("{:?}", speakers);
 
                             if let Ok(speakers) = speakers {
                                 for speaker in speakers.clone() {
-                                    cmd_buff.push(Command::perform(async {}, |_| {
-                                        Message::APICall(APICall::SpeakerInfo(
-                                            speaker.clone(),
-                                            SpeakerInfo {
-                                                speaker_uuid: speaker.speaker_uuid,
-                                                core_version: None,
-                                            },
-                                        ))
-                                    }));
+                                    cmd_buff.push(Command::perform(
+                                        SpeakerInfo {
+                                            speaker_uuid: speaker.speaker_uuid.clone(),
+                                            core_version: None,
+                                        }
+                                        .call(SERVER.get().unwrap()),
+                                        |response| {
+                                            Message::APIResult(APIResult::SpeakerInfo(
+                                                speaker, response,
+                                            ))
+                                        },
+                                    ));
                                 }
                             }
                         }
@@ -311,6 +363,95 @@ impl Application for VoiceVox {
                             }
                         }
                     },
+                    Message::SpeedChange(key, after) => {
+                        if let Some(vt) = state.persistence.viewing_tab {
+                            if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
+                                state.tracking_buffer[vt].apply(
+                                    Diff::SpeedChanged {
+                                        audio_item_key: key,
+                                        before: 0.0,
+                                        after,
+                                    },
+                                    tab_ctx,
+                                );
+                            }
+                        }
+                    }
+                    Message::PitchChange(key, after) => {
+                        if let Some(vt) = state.persistence.viewing_tab {
+                            if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
+                                state.tracking_buffer[vt].apply(
+                                    Diff::PitchChanged {
+                                        audio_item_key: key,
+                                        before: 0.0,
+                                        after,
+                                    },
+                                    tab_ctx,
+                                );
+                            }
+                        }
+                    }
+                    Message::IntonationChange(key, after) => {
+                        if let Some(vt) = state.persistence.viewing_tab {
+                            if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
+                                state.tracking_buffer[vt].apply(
+                                    Diff::IntonationChanged {
+                                        audio_item_key: key,
+                                        before: 0.0,
+                                        after,
+                                    },
+                                    tab_ctx,
+                                );
+                            }
+                        }
+                    }
+                    Message::VolumeChange(key, after) => {
+                        if let Some(vt) = state.persistence.viewing_tab {
+                            if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
+                                state.tracking_buffer[vt].apply(
+                                    Diff::VolumeChanged {
+                                        audio_item_key: key,
+                                        before: 0.0,
+                                        after,
+                                    },
+                                    tab_ctx,
+                                );
+                            }
+                        }
+                    }
+                    Message::PrePhonemeLengthChange(key, after) => {
+                        if let Some(vt) = state.persistence.viewing_tab {
+                            if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
+                                state.tracking_buffer[vt].apply(
+                                    Diff::PrePhonemeLengthChanged {
+                                        audio_item_key: key,
+                                        before: 0.0,
+                                        after,
+                                    },
+                                    tab_ctx,
+                                );
+                            }
+                        }
+                    }
+                    Message::PostPhonemeLengthChange(key, after) => {
+                        if let Some(vt) = state.persistence.viewing_tab {
+                            if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
+                                state.tracking_buffer[vt].apply(
+                                    Diff::PostPhonemeLengthChanged {
+                                        audio_item_key: key,
+                                        before: 0.0,
+                                        after,
+                                    },
+                                    tab_ctx,
+                                );
+                            }
+                        }
+                    }
+                    Message::QueryParameterCommit => {
+                        if let Some(vt) = state.persistence.viewing_tab {
+                            state.tracking_buffer[vt].commit()
+                        }
+                    }
                 }
 
                 if !saved {
@@ -401,6 +542,7 @@ impl Application for VoiceVox {
                         &state.portrait_and_names,
                         &state.style_id_uuid_table,
                         &state.icons,
+                        &state.tracking_buffer,
                     )
                 }
                 Page::ToolBarConfig => build_configure_ui(
@@ -424,7 +566,7 @@ struct State {
     configure_ui_selected_tool: ToolBarKind,
     toolbar_ui_temp_config: ToolBarConfig,
     persistence: VoiceVoxState,
-
+    tracking_buffer: Vec<History>,
     tab_state: PaneGridState<InTabPane>,
     portrait_and_names: HashMap<String, (iced::widget::image::Handle, String)>,
     style_id_uuid_table: BTreeMap<i32, String>,
@@ -439,24 +581,9 @@ struct TabContext {
 }
 impl Default for TabContext {
     fn default() -> Self {
-        let audio_item = AudioItem {
-            text: String::new(),
-            styleId: 0,
-            query: Some(voice_vox_api::api_schema::AudioQuery::default().into()),
-            presetKey: None,
-        };
-
-        let uuid = uuid::Uuid::new_v4().to_string();
-        let keys = vec![uuid.clone()];
-        let mut items = HashMap::new();
-        items.insert(uuid, audio_item);
         Self {
             file_name: "unnamed".to_owned(),
-            project: project::VoiceVoxProject {
-                appVersion: "0.13.3".to_owned(),
-                audioKeys: keys,
-                audioItems: items,
-            },
+            project: project::VoiceVoxProject::default(),
             editing_line: 0,
         }
     }

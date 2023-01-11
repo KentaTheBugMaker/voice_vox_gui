@@ -9,7 +9,7 @@ use iced::{
 };
 use iced_native::widget::pane_grid;
 
-use crate::{toolbar::ToolBarConfig, Message, TabContext};
+use crate::{history::History, toolbar::ToolBarConfig, Message, TabContext};
 pub(crate) fn build_ui<'a>(
     tool_bar: &'a ToolBarConfig,
 
@@ -19,11 +19,13 @@ pub(crate) fn build_ui<'a>(
     portraits: &HashMap<String, (iced::widget::image::Handle, String)>,
     style_id_uuid_table: &BTreeMap<i32, String>,
     icons: &BTreeMap<i32, iced::widget::image::Handle>,
+    histories: &'a [History],
 ) -> Column<'a, Message, Renderer> {
     let mut page = Column::new();
     page = page.push(tool_bar.build_toolbar());
 
-    let mut tab_bar = iced_aw::TabBar::new(active_tab, |id| Message::TabSelect(id));
+    let mut tab_bar =
+        iced_aw::TabBar::new_without_right_click(active_tab, |id| Message::TabSelect(id));
     for tab_ctx in tab_contexts {
         tab_bar = tab_bar.push(iced_aw::TabLabel::Text(tab_ctx.file_name.clone()));
     }
@@ -46,11 +48,14 @@ pub(crate) fn build_ui<'a>(
                                     .width(Length::Units(32)),
                             ));
                             // text
-                            line = line.push(iced::widget::text_input(
-                                "",
-                                &tab_ctx.project.audioItems.get(key).unwrap().text,
-                                |txt| Message::EditText(key.clone(), txt),
-                            ));
+                            line = line.push(
+                                iced::widget::text_input(
+                                    "",
+                                    &tab_ctx.project.audioItems.get(key).unwrap().text,
+                                    |txt| Message::EditText(key.clone(), txt),
+                                )
+                                .on_submit(Message::QueryParameterCommit),
+                            );
                             column = column.push(line);
                         }
 
@@ -59,7 +64,75 @@ pub(crate) fn build_ui<'a>(
                         ))
                     }
                     InTabPane::BottomPane => pane_grid::Content::new(Text::new("wip")),
-                    InTabPane::ParameterPane => pane_grid::Content::new(Text::new("wip")),
+                    InTabPane::ParameterPane => pane_grid::Content::new({
+                        let mut column = Column::new();
+                        let line = tab_ctx.editing_line;
+                        let audio_item_key = &tab_ctx.project.audioKeys[line];
+                        if let Some(audio_item) = tab_ctx.project.audioItems.get(audio_item_key) {
+                            if let Some(query) = &audio_item.query {
+                                column =
+                                    column.push(Text::new(format!("話速 {:.2}", query.speedScale)));
+                                column = column.push(
+                                    iced::widget::slider(0.50..=2.0, query.speedScale, |x| {
+                                        Message::SpeedChange(audio_item_key.clone(), x)
+                                    })
+                                    .step(0.001)
+                                    .on_release(Message::QueryParameterCommit),
+                                );
+                                column =
+                                    column.push(Text::new(format!("音高 {:.2}", query.pitchScale)));
+                                column = column.push(
+                                    iced::widget::slider(-0.15..=0.15, query.pitchScale, |x| {
+                                        Message::PitchChange(audio_item_key.clone(), x)
+                                    })
+                                    .step(0.001)
+                                    .on_release(Message::QueryParameterCommit),
+                                );
+                                column = column
+                                    .push(Text::new(format!("抑揚 {:.2}", query.intonationScale)));
+                                column = column.push(
+                                    iced::widget::slider(0.0..=2.0, query.intonationScale, |x| {
+                                        Message::IntonationChange(audio_item_key.clone(), x)
+                                    })
+                                    .step(0.001)
+                                    .on_release(Message::QueryParameterCommit),
+                                );
+                                column = column
+                                    .push(Text::new(format!("音量 {:.2}", query.volumeScale)));
+                                column = column.push(
+                                    iced::widget::slider(0.0..=2.0, query.volumeScale, |x| {
+                                        Message::VolumeChange(audio_item_key.clone(), x)
+                                    })
+                                    .step(0.001)
+                                    .on_release(Message::QueryParameterCommit),
+                                );
+                                column = column.push(Text::new(format!(
+                                    "開始無音 {:.2}",
+                                    query.prePhonemeLength
+                                )));
+                                column = column.push(
+                                    iced::widget::slider(0.0..=1.5, query.prePhonemeLength, |x| {
+                                        Message::PrePhonemeLengthChange(audio_item_key.clone(), x)
+                                    })
+                                    .step(0.001)
+                                    .on_release(Message::QueryParameterCommit),
+                                );
+                                column = column.push(Text::new(format!(
+                                    "終了無音 {:.2}",
+                                    query.postPhonemeLength
+                                )));
+                                column = column.push(
+                                    iced::widget::slider(0.0..=1.5, query.postPhonemeLength, |x| {
+                                        Message::PostPhonemeLengthChange(audio_item_key.clone(), x)
+                                    })
+                                    .step(0.001)
+                                    .on_release(Message::QueryParameterCommit),
+                                );
+                            }
+                        }
+
+                        column
+                    }),
                     InTabPane::CharacterPane => {
                         let line = tab_ctx.editing_line;
                         let audio_item_key = &tab_ctx.project.audioKeys[line];
@@ -72,6 +145,16 @@ pub(crate) fn build_ui<'a>(
                         } else {
                             pane_grid::Content::new(Text::new("バグ"))
                         }
+                    }
+                    InTabPane::HistroyPane => {
+                        let mut content = Column::new();
+                        content = content.push("履歴");
+                        if let Some(history) = histories.get(active_tab) {
+                            content = content.push(iced::widget::scrollable(
+                                history.build_view().width(Length::Fill),
+                            ));
+                        }
+                        pane_grid::Content::new(content)
                     }
                 },
             )
@@ -90,4 +173,5 @@ pub enum InTabPane {
     TextPane,
     ParameterPane,
     BottomPane,
+    HistroyPane,
 }

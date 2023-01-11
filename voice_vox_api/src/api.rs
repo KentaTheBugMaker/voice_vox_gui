@@ -6,7 +6,7 @@ use crate::api_schema::{
     self, AccentPhrase, AccentPhrasesResponse, EngineManifestRaw, HttpValidationError,
     ParseKanaBadRequest, WordType,
 };
-use async_trait::async_trait;
+
 use once_cell::race::OnceBox;
 use reqwest::{Error, StatusCode};
 use std::{collections::HashMap, convert::TryInto, io::ErrorKind};
@@ -32,17 +32,13 @@ pub struct AudioQuery {
     pub core_version: CoreVersion,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for AudioQuery {
-    type Response = Result<crate::api_schema::AudioQuery, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl AudioQuery {
+    pub async fn call(self, server: &str) -> Result<crate::api_schema::AudioQuery, APIError> {
         let request = client()
             .post(format!("http://{}/audio_query", server))
             .query(&[("speaker", self.speaker)])
-            .add_core_version(&self.core_version)
-            .query(&[("text", &self.text)])
+            .add_core_version(&&self.core_version)
+            .query(&[("text", self.text)])
             .build()?;
         let res = client().execute(request).await.unwrap();
         match res.status() {
@@ -65,17 +61,13 @@ pub struct AudioQueryFromPreset {
     pub core_version: CoreVersion,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for AudioQueryFromPreset {
-    type Response = Result<crate::api_schema::AudioQuery, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl AudioQueryFromPreset {
+    pub async fn call(self, server: &str) -> Result<crate::api_schema::AudioQuery, APIError> {
         let request = client()
             .post(format!("http://{}/audio_query_from_preset", server))
             .query(&[("preset_id", self.preset_id)])
-            .add_core_version(&self.core_version)
-            .query(&[("text", &self.text)])
+            .add_core_version(&&self.core_version)
+            .query(&[("text", self.text)])
             .build()?;
         let res = client().execute(request).await.unwrap();
         match res.status() {
@@ -84,14 +76,6 @@ impl Api for AudioQueryFromPreset {
             x => Err(x.into()),
         }
     }
-}
-
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-pub trait Api {
-    type Response;
-
-    async fn call(&self, server: &str) -> Self::Response;
 }
 
 /// # テキストからアクセント句を得る
@@ -131,18 +115,14 @@ impl From<reqwest::StatusCode> for AccentPhrasesErrors {
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for AccentPhrases {
-    type Response = Result<AccentPhrasesResponse, AccentPhrasesErrors>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl AccentPhrases {
+    pub async fn call(self, server: &str) -> Result<AccentPhrasesResponse, AccentPhrasesErrors> {
         let request = client()
             .post(format!("http://{}/accent_phrases", server))
             .query(&[("speaker", self.speaker)])
             .add_core_version(&self.core_version)
             .query(&[("is_kana", self.is_kana.unwrap_or(false))])
-            .query(&[("text", &self.text)])
+            .query(&[("text", self.text)])
             .build()?;
         let res = client().execute(request).await.unwrap();
         match res.status() {
@@ -168,12 +148,8 @@ pub struct MoraData {
     pub accent_phrases: Vec<AccentPhrase>,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for MoraData {
-    type Response = Result<Vec<AccentPhrase>, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl MoraData {
+    pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
             .post(format!("http://{}/mora_data", server))
             .query(&[("speaker", self.speaker)])
@@ -199,12 +175,8 @@ pub struct MoraLength {
     pub accent_phrases: Vec<AccentPhrase>,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for MoraLength {
-    type Response = Result<Vec<AccentPhrase>, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl MoraLength {
+    pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
             .post(format!("http://{}/mora_length", server))
             .query(&[("speaker", self.speaker)])
@@ -229,12 +201,9 @@ pub struct MoraPitch {
     // in body.
     pub accent_phrases: Vec<AccentPhrase>,
 }
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for MoraPitch {
-    type Response = Result<Vec<AccentPhrase>, APIError>;
 
-    async fn call(&self, server: &str) -> Self::Response {
+impl MoraPitch {
+    pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
             .post(format!("http://{}/mora_pitch", server))
             .query(&[("speaker", self.speaker)])
@@ -260,12 +229,9 @@ pub struct Synthesis {
     // in body json.
     pub audio_query: crate::api_schema::AudioQuery,
 }
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for Synthesis {
-    type Response = Result<Vec<u8>, APIError>;
 
-    async fn call(&self, server: &str) -> Self::Response {
+impl Synthesis {
+    pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/synthesis", server))
             .query(&[("speaker", self.speaker)])
@@ -294,12 +260,9 @@ pub struct CancellableSynthesis {
     // in body json.
     pub audio_query: crate::api_schema::AudioQuery,
 }
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for CancellableSynthesis {
-    type Response = Result<Vec<u8>, APIError>;
 
-    async fn call(&self, server: &str) -> Self::Response {
+impl CancellableSynthesis {
+    pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/cancellable_synthesis", server))
             .query(&[("speaker", self.speaker)])
@@ -327,12 +290,8 @@ pub struct MultiSynthesis {
     pub audio_query: Vec<crate::api_schema::AudioQuery>,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for MultiSynthesis {
-    type Response = Result<Vec<u8>, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl MultiSynthesis {
+    pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/multi_synthesis", server))
             .query(&[("speaker", self.speaker)])
@@ -363,12 +322,8 @@ pub struct SynthesisMorphing {
     pub audio_query: crate::api_schema::AudioQuery,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for SynthesisMorphing {
-    type Response = Result<Vec<u8>, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl SynthesisMorphing {
+    pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/synthesis_morphing", server))
             .query(&[
@@ -399,14 +354,10 @@ pub struct ConnectWaves {
     pub waves: Vec<Vec<u8>>,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for ConnectWaves {
-    type Response = Result<Vec<u8>, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl ConnectWaves {
+    pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let mut buffer = Vec::new();
-        for wave in &self.waves {
+        for wave in self.waves {
             buffer.push(base64::encode(wave));
         }
         let request = client()
@@ -426,12 +377,8 @@ impl Api for ConnectWaves {
 #[derive(Debug, Clone)]
 pub struct Presets;
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for Presets {
-    type Response = Result<Vec<crate::api_schema::Preset>, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl Presets {
+    pub async fn call(self, server: &str) -> Result<Vec<crate::api_schema::Preset>, APIError> {
         let request = client()
             .get(format!("http://{}/presets", server))
             .build()
@@ -447,12 +394,8 @@ impl Api for Presets {
 #[derive(Debug, Clone)]
 pub struct Version;
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for Version {
-    type Response = Result<Option<String>, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl Version {
+    pub async fn call(self, server: &str) -> Result<Option<String>, APIError> {
         let request = client()
             .get(format!("http://{}/version", server))
             .build()
@@ -468,12 +411,8 @@ impl Api for Version {
 #[derive(Debug, Clone)]
 pub struct CoreVersions;
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for CoreVersions {
-    type Response = Result<Vec<String>, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl CoreVersions {
+    pub async fn call(self, server: &str) -> Result<Vec<String>, APIError> {
         let request = client()
             .get(format!("http://{}/core_versions", server))
             .build()
@@ -491,12 +430,8 @@ pub struct Speakers {
     pub core_version: CoreVersion,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for Speakers {
-    type Response = Result<Vec<crate::api_schema::Speaker>, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl Speakers {
+    pub async fn call(self, server: &str) -> Result<Vec<crate::api_schema::Speaker>, APIError> {
         let request = client()
             .get(format!("http://{}/speakers", server))
             .add_core_version(&self.core_version)
@@ -517,15 +452,11 @@ pub struct SpeakerInfo {
     pub core_version: CoreVersion,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for SpeakerInfo {
-    type Response = Result<crate::api_schema::SpeakerInfo, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl SpeakerInfo {
+    pub async fn call(self, server: &str) -> Result<crate::api_schema::SpeakerInfo, APIError> {
         let req = client()
             .get(format!("http://{}/speaker_info", server))
-            .query(&[("speaker_uuid", &self.speaker_uuid)])
+            .query(&[("speaker_uuid", self.speaker_uuid)])
             .add_core_version(&self.core_version)
             .build()
             .unwrap();
@@ -547,12 +478,8 @@ pub struct SupportedDevices {
     pub core_version: CoreVersion,
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for SupportedDevices {
-    type Response = Result<crate::api_schema::SupportedDevices, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl SupportedDevices {
+    pub async fn call(self, server: &str) -> Result<crate::api_schema::SupportedDevices, APIError> {
         let request = client()
             .get(format!("http://{}/supported_devices", server))
             .add_core_version(&self.core_version)
@@ -623,12 +550,11 @@ impl From<StatusCode> for APIError {
 #[derive(Debug, Clone)]
 pub struct DownloadableLibraries;
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for DownloadableLibraries {
-    type Response = Result<crate::api_schema::DownloadableLibraries, APIError>;
-
-    async fn call(&self, server: &str) -> Self::Response {
+impl DownloadableLibraries {
+    pub async fn call(
+        self,
+        server: &str,
+    ) -> Result<crate::api_schema::DownloadableLibraries, APIError> {
         let req = client()
             .get(format!("http://{}/downloadble_libraries", server))
             .build()
@@ -651,12 +577,9 @@ pub struct InitializeSpeaker {
     pub speaker: i32,
     pub core_version: CoreVersion,
 }
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for InitializeSpeaker {
-    type Response = Result<(), APIError>;
 
-    async fn call(&self, server: &str) -> Self::Response {
+impl InitializeSpeaker {
+    pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
             .post(format!("http://{}/initialize_speaker", server))
             .query(&[("speaker", self.speaker)])
@@ -677,12 +600,9 @@ pub struct IsInitializedSpeaker {
     pub speaker: i32,
     pub core_version: CoreVersion,
 }
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for IsInitializedSpeaker {
-    type Response = Result<bool, APIError>;
 
-    async fn call(&self, server: &str) -> Self::Response {
+impl IsInitializedSpeaker {
+    pub async fn call(self, server: &str) -> Result<bool, APIError> {
         let req = client()
             .get(format!("http://{}/is_initialized_speaker", server))
             .query(&[("speaker", self.speaker)])
@@ -700,11 +620,9 @@ impl Api for IsInitializedSpeaker {
 
 #[derive(Debug, Clone)]
 pub struct EngineManifest;
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for EngineManifest {
-    type Response = Result<crate::api_schema::EngineManifest, APIError>;
-    async fn call(&self, server: &str) -> Self::Response {
+
+impl EngineManifest {
+    pub async fn call(self, server: &str) -> Result<crate::api_schema::EngineManifest, APIError> {
         let req = client()
             .get(format!("http://{}/engine_manifest", server))
             .build()
@@ -728,11 +646,12 @@ impl Api for EngineManifest {
 ///
 #[derive(Debug, Clone)]
 pub struct UserDict;
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for UserDict {
-    type Response = Result<HashMap<String, crate::api_schema::UserDictWord>, APIError>;
-    async fn call(&self, server: &str) -> Self::Response {
+
+impl UserDict {
+    pub async fn call(
+        self,
+        server: &str,
+    ) -> Result<HashMap<String, crate::api_schema::UserDictWord>, APIError> {
         let req = client()
             .get(format!("http://{}/user_dict", server))
             .build()
@@ -763,17 +682,14 @@ pub struct UserDictWord {
     ///単語の優先度
     pub priority: Option<i32>,
 }
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for UserDictWord {
-    type Response = Result<String, APIError>;
 
-    async fn call(&self, server: &str) -> Self::Response {
+impl UserDictWord {
+    pub async fn call(self, server: &str) -> Result<String, APIError> {
         let req = client()
             .post(format!("http://{}/user_dict_word", server))
             .query(&[
-                ("surface", &self.surface),
-                ("pronunciation", &self.pronunciation),
+                ("surface", self.surface),
+                ("pronunciation", self.pronunciation),
             ])
             .query(&[("accent_type", self.accent_type)]);
         let req = if let Some(priority) = self.priority {
@@ -813,17 +729,14 @@ pub struct RewriteUserDictWord {
     ///単語の優先度
     pub priority: Option<i32>,
 }
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for RewriteUserDictWord {
-    type Response = Result<(), APIError>;
 
-    async fn call(&self, server: &str) -> Self::Response {
+impl RewriteUserDictWord {
+    pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
             .put(format!("http://{}/user_dict_word/{}", server, self.uuid))
             .query(&[
-                ("surface", &self.surface),
-                ("pronunciation", &self.pronunciation),
+                ("surface", self.surface),
+                ("pronunciation", self.pronunciation),
             ])
             .query(&[("accent_type", self.accent_type)]);
         let req = if let Some(priority) = self.priority {
@@ -855,12 +768,9 @@ pub struct DeleteUserDictWord {
     /// word uuid
     pub uuid: String,
 }
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for DeleteUserDictWord {
-    type Response = Result<(), APIError>;
 
-    async fn call(&self, server: &str) -> Self::Response {
+impl DeleteUserDictWord {
+    pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
             .delete(format!("http://{}/user_dict_word/{}", server, self.uuid))
             .build()
@@ -881,11 +791,9 @@ pub struct ImportUserDict {
     pub over_ride: bool,
     pub dictionary: HashMap<String, api_schema::UserDictWord>,
 }
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
-impl Api for ImportUserDict {
-    type Response = Result<(), APIError>;
-    async fn call(&self, server: &str) -> Self::Response {
+
+impl ImportUserDict {
+    pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
             .post(format!("http://{}/import_user_dict", server))
             .json(&self.dictionary)

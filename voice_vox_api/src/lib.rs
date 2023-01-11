@@ -8,9 +8,9 @@ pub mod api_schema;
 mod test {
     use crate::{
         api::{
-            Api, AudioQuery, ConnectWaves, CoreVersions, DeleteUserDictWord, MultiSynthesis,
-            Presets, RewriteUserDictWord, SpeakerInfo, Speakers, SupportedDevices,
-            SynthesisMorphing, UserDict, UserDictWord, Version,
+            AudioQuery, ConnectWaves, CoreVersions, DeleteUserDictWord, MultiSynthesis, Presets,
+            RewriteUserDictWord, SpeakerInfo, Speakers, SupportedDevices, SynthesisMorphing,
+            UserDict, UserDictWord, Version,
         },
         api_schema::WordType,
     };
