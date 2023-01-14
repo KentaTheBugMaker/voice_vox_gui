@@ -40,13 +40,23 @@ pub(crate) fn build_ui<'a>(
                         for key in tab_ctx.project.audioKeys.iter() {
                             let mut line = Row::new();
                             // icon
-                            let style_id = tab_ctx.project.audioItems[key].styleId;
-                            let handle = icons[&style_id].clone();
-                            line = line.push(iced::widget::button(
-                                iced::widget::image(handle)
-                                    .height(Length::Units(32))
-                                    .width(Length::Units(32)),
-                            ));
+                            let handle = tab_ctx
+                                .project
+                                .audioItems
+                                .get(key)
+                                .and_then(|audio_item| icons.get(&audio_item.styleId));
+                            if let Some(handle) = handle {
+                                line = line.push(iced::widget::button(
+                                    iced::widget::image(handle.clone())
+                                        .height(Length::Units(32))
+                                        .width(Length::Units(32)),
+                                ));
+                            } else {
+                                eprintln!(
+                                    "Failed to find icon handle for line {}",
+                                    tab_ctx.project.audioItems[key].styleId
+                                );
+                            }
                             // text
                             line = line.push(
                                 iced::widget::text_input(
@@ -137,11 +147,12 @@ pub(crate) fn build_ui<'a>(
                         let line = tab_ctx.editing_line;
                         let audio_item_key = &tab_ctx.project.audioKeys[line];
                         let audio_item = tab_ctx.project.audioItems.get(audio_item_key);
-                        if let Some(ai) = audio_item {
-                            let character_uuid = &style_id_uuid_table[&ai.styleId];
-                            let handle = portraits[character_uuid].clone();
-                            pane_grid::Content::new(iced::widget::image(handle.0))
-                                .title_bar(TitleBar::new(Text::new(handle.1)))
+                        let handle = audio_item
+                            .and_then(|ai| style_id_uuid_table.get(&ai.styleId))
+                            .and_then(|character_uuid| portraits.get(character_uuid));
+                        if let Some(handle) = handle {
+                            pane_grid::Content::new(iced::widget::image(handle.0.clone()))
+                                .title_bar(TitleBar::new(Text::new(handle.1.clone())))
                         } else {
                             pane_grid::Content::new(Text::new("バグ"))
                         }

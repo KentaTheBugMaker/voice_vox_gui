@@ -5,6 +5,7 @@ mod toolbar;
 
 use std::collections::{BTreeMap, HashMap};
 
+use async_std::io::{ReadExt, WriteExt};
 use history::{Diff, History};
 use iced::widget::pane_grid::{self, State as PaneGridState};
 use iced::{
@@ -14,9 +15,9 @@ use iced::{
 use main_page::InTabPane;
 
 use serde::{Deserialize, Serialize};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
 use toolbar::{build_configure_ui, ConfigureMessage, ToolBarConfig, ToolBarKind};
-use voice_vox_api::reqwest_api::{APIError, SpeakerInfo};
+use voice_vox_api::surf_api::{APIError, SpeakerInfo};
 fn main() -> iced::Result {
     VoiceVox::run(Settings {
         default_font: Some(include_bytes!("../font/NotoSansCJKjp-Regular.otf")),
@@ -60,10 +61,10 @@ pub(crate) enum APIResult {
 
 #[derive(Debug, Clone)]
 pub(crate) enum APICall {
-    Speakers(voice_vox_api::reqwest_api::Speakers),
+    Speakers(voice_vox_api::surf_api::Speakers),
     SpeakerInfo(
         voice_vox_api::api_schema::Speaker,
-        voice_vox_api::reqwest_api::SpeakerInfo,
+        voice_vox_api::surf_api::SpeakerInfo,
     ),
 }
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -165,7 +166,7 @@ impl Application for VoiceVox {
                 }
                 // collect informations from engine.
                 Command::perform(
-                    voice_vox_api::reqwest_api::Speakers { core_version: None }
+                    voice_vox_api::surf_api::Speakers { core_version: None }
                         .call("localhost:50021"),
                     |res| Message::APIResult(APIResult::Speakers(res)),
                 )
@@ -294,7 +295,7 @@ impl Application for VoiceVox {
                         state.tracking_buffer.remove(tab_id);
 
                         let save = Command::perform(
-                            tokio::fs::write(
+                            async_std::fs::write(
                                 tab_ctx.file_name,
                                 serde_json::ser::to_vec_pretty(&tab_ctx.project).unwrap(),
                             ),
@@ -627,7 +628,7 @@ impl VoiceVoxState {
     async fn load() -> Result<VoiceVoxState, LoadError> {
         let mut contents = String::new();
 
-        let mut file = tokio::fs::File::open(Self::path())
+        let mut file = async_std::fs::File::open(Self::path())
             .await
             .map_err(|_| LoadError::File)?;
 
@@ -644,13 +645,13 @@ impl VoiceVoxState {
         let path = Self::path();
 
         if let Some(dir) = path.parent() {
-            tokio::fs::create_dir_all(dir)
+            async_std::fs::create_dir_all(dir)
                 .await
                 .map_err(|_| SaveError::File)?;
         }
 
         {
-            let mut file = tokio::fs::File::create(path)
+            let mut file = async_std::fs::File::create(path)
                 .await
                 .map_err(|_| SaveError::File)?;
 
@@ -660,7 +661,7 @@ impl VoiceVoxState {
         }
 
         // This is a simple way to save at most once every couple seconds
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        async_std::task::sleep(std::time::Duration::from_secs(2)).await;
 
         Ok(())
     }

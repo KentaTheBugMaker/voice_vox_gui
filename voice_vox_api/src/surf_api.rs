@@ -9,6 +9,7 @@ use crate::api_schema::{
 
 use base64::{engine, Engine};
 use once_cell::race::OnceBox;
+use serde::Serialize;
 use std::{collections::HashMap, convert::TryInto, io::ErrorKind};
 use surf::{Error, StatusCode};
 
@@ -26,10 +27,11 @@ fn client() -> &'static surf::Client {
 ///
 /// クエリの初期値を得ます。ここで得られたクエリはそのまま音声合成に利用できます。各値の意味はSchemasを参照してください。
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AudioQuery {
-    pub body_string: String,
+    pub text: String,
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
 }
 
@@ -37,9 +39,7 @@ impl AudioQuery {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::AudioQuery, APIError> {
         let request = client()
             .post(format!("http://{}/audio_query", server))
-            .query(&[("speaker", self.speaker)])?
-            .add_core_version(&&self.core_version)?
-            .query(&[("body_string", self.body_string)])?
+            .query(&self)?
             .build();
         let mut res = client().send(request).await?;
         match res.status() {
@@ -57,10 +57,11 @@ impl AudioQuery {
 /// クエリの初期値を得ます。ここで得られたクエリはそのまま音声合成に利用できます。各値の意味は`Schemas`を参照してください。
 ///
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AudioQueryFromPreset {
-    pub body_string: String,
+    pub text: String,
     pub preset_id: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
 }
 
@@ -68,9 +69,7 @@ impl AudioQueryFromPreset {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::AudioQuery, APIError> {
         let request = client()
             .post(format!("http://{}/audio_query_from_preset", server))
-            .query(&[("preset_id", self.preset_id)])?
-            .add_core_version(&&self.core_version)?
-            .query(&[("body_string", self.body_string)])?
+            .query(&self)?
             .build();
         let mut res = client().send(request).await.unwrap();
         match res.status() {
@@ -94,11 +93,13 @@ impl AudioQueryFromPreset {
 /// * アクセント位置を`'`で指定する。全てのアクセント句にはアクセント位置を1つ指定する必要がある。
 /// * アクセント句末に`？`(全角)を入れることにより疑問文の発音ができる。
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AccentPhrases {
-    pub body_string: String,
+    pub text: String,
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub is_kana: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
 }
 
@@ -124,10 +125,7 @@ impl AccentPhrases {
     pub async fn call(self, server: &str) -> Result<AccentPhrasesResponse, AccentPhrasesErrors> {
         let request = client()
             .post(format!("http://{}/accent_phrases", server))
-            .query(&[("speaker", self.speaker)])?
-            .add_core_version(&self.core_version)?
-            .query(&[("is_kana", self.is_kana.unwrap_or(false))])?
-            .query(&[("body_string", self.body_string)])?
+            .query(&self)?
             .build();
         let mut res = client().send(request).await.unwrap();
         match res.status() {
@@ -144,12 +142,14 @@ impl AccentPhrases {
 }
 
 ///アクセント句から音高を得る
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MoraData {
     //in query
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
     //in body
+    #[serde(skip_serializing)]
     pub accent_phrases: Vec<AccentPhrase>,
 }
 
@@ -157,8 +157,7 @@ impl MoraData {
     pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
             .post(format!("http://{}/mora_data", server))
-            .query(&[("speaker", self.speaker)])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .body_json(&self.accent_phrases)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -173,12 +172,14 @@ impl MoraData {
 }
 
 /// # アクセント句から音素長を得る
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MoraLength {
     // in query.
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
     // in body.
+    #[serde(skip_serializing)]
     pub accent_phrases: Vec<AccentPhrase>,
 }
 
@@ -186,8 +187,7 @@ impl MoraLength {
     pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
             .post(format!("http://{}/mora_length", server))
-            .query(&[("speaker", self.speaker)])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .body_json(&self.accent_phrases)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -202,12 +202,14 @@ impl MoraLength {
 }
 
 /// # アクセント句から音素長を得る
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MoraPitch {
     // in query.
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
     // in body.
+    #[serde(skip_serializing)]
     pub accent_phrases: Vec<AccentPhrase>,
 }
 
@@ -215,8 +217,7 @@ impl MoraPitch {
     pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
             .post(format!("http://{}/mora_pitch", server))
-            .query(&[("speaker", self.speaker)])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .body_json(&self.accent_phrases)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -231,13 +232,16 @@ impl MoraPitch {
 }
 
 /// # 音声合成する
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Synthesis {
     // in query
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub enable_interrogative_upspeak: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
     // in body body_json.
+    #[serde(skip_serializing)]
     pub audio_query: crate::api_schema::AudioQuery,
 }
 
@@ -245,12 +249,7 @@ impl Synthesis {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/synthesis", server))
-            .query(&[("speaker", self.speaker)])?
-            .query(&[(
-                "enable_interrogative_upspeak",
-                self.enable_interrogative_upspeak.unwrap_or(true),
-            )])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .body_json(&self.audio_query)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -265,12 +264,14 @@ impl Synthesis {
 }
 
 /// # 音声合成する（キャンセル可能）
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CancellableSynthesis {
     // in query
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
     // in body body_json.
+    #[serde(skip_serializing)]
     pub audio_query: crate::api_schema::AudioQuery,
 }
 
@@ -278,8 +279,7 @@ impl CancellableSynthesis {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/cancellable_synthesis", server))
-            .query(&[("speaker", self.speaker)])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .body_json(&self.audio_query)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -296,12 +296,14 @@ impl CancellableSynthesis {
 /// # まとめて音声合成する
 ///
 /// 複数のwavがzipでまとめられて返されます.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MultiSynthesis {
     // in query
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
     // in body body_json.
+    #[serde(skip_serializing)]
     pub audio_query: Vec<crate::api_schema::AudioQuery>,
 }
 
@@ -309,8 +311,7 @@ impl MultiSynthesis {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/multi_synthesis", server))
-            .query(&[("speaker", self.speaker)])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .body_json(&self.audio_query)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -327,14 +328,16 @@ impl MultiSynthesis {
 /// # 2人の話者でモーフィングした音声を合成する
 ///
 /// 指定された2人の話者で音声を合成、指定した割合でモーフィングした音声を得ます。 モーフィングの割合はmorph_rateで指定でき、0.0でベースの話者、1.0でターゲットの話者に近づきます。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SynthesisMorphing {
     // in query
     pub base_speaker: i32,
     pub target_speaker: i32,
     pub morph_rate: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
     // in body body_json.
+    #[serde(skip_serializing)]
     pub audio_query: crate::api_schema::AudioQuery,
 }
 
@@ -342,12 +345,7 @@ impl SynthesisMorphing {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/synthesis_morphing", server))
-            .query(&[
-                ("base_speaker", self.base_speaker),
-                ("target_speaker", self.target_speaker),
-            ])?
-            .query(&[("morph_rate", self.morph_rate)])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .body_json(&self.audio_query)?
             .build();
 
@@ -439,8 +437,9 @@ impl CoreVersions {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Speakers {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
 }
 
@@ -448,7 +447,7 @@ impl Speakers {
     pub async fn call(self, server: &str) -> Result<Vec<crate::api_schema::Speaker>, APIError> {
         let request = client()
             .get(format!("http://{}/speakers", server))
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .build();
         let mut res = client().send(request).await.unwrap();
         match res.status() {
@@ -461,9 +460,10 @@ impl Speakers {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SpeakerInfo {
     pub speaker_uuid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
 }
 
@@ -471,8 +471,7 @@ impl SpeakerInfo {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::SpeakerInfo, APIError> {
         let req = client()
             .get(format!("http://{}/speaker_info", server))
-            .query(&[("speaker_uuid", self.speaker_uuid)])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .build();
         let mut res = client().send(req).await.unwrap();
         match res.status() {
@@ -489,8 +488,9 @@ impl SpeakerInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SupportedDevices {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
 }
 
@@ -498,7 +498,7 @@ impl SupportedDevices {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::SupportedDevices, APIError> {
         let request = client()
             .get(format!("http://{}/supported_devices", server))
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .build();
         let mut res = client().send(request).await.unwrap();
         match res.status() {
@@ -509,22 +509,6 @@ impl SupportedDevices {
                 .body_json::<crate::api_schema::SupportedDevices>()
                 .await?),
             x => Err(x.into()),
-        }
-    }
-}
-
-pub trait AddCoreVersion {
-    fn add_core_version(self, core_version: &CoreVersion) -> Result<Self, surf::Error>
-    where
-        Self: Sized;
-}
-
-impl AddCoreVersion for surf::RequestBuilder {
-    fn add_core_version(self, core_version: &CoreVersion) -> Result<Self, surf::Error> {
-        if let Some(cv) = &core_version {
-            self.query(&[("core_version", cv)])
-        } else {
-            Ok(self)
         }
     }
 }
@@ -594,9 +578,10 @@ impl DownloadableLibraries {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct InitializeSpeaker {
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
 }
 
@@ -604,8 +589,7 @@ impl InitializeSpeaker {
     pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
             .post(format!("http://{}/initialize_speaker", server))
-            .query(&[("speaker", self.speaker)])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .build();
         let mut res = client().send(req).await.unwrap();
         match res.status() {
@@ -618,9 +602,10 @@ impl InitializeSpeaker {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct IsInitializedSpeaker {
     pub speaker: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub core_version: CoreVersion,
 }
 
@@ -628,8 +613,7 @@ impl IsInitializedSpeaker {
     pub async fn call(self, server: &str) -> Result<bool, APIError> {
         let req = client()
             .get(format!("http://{}/is_initialized_speaker", server))
-            .query(&[("speaker", self.speaker)])?
-            .add_core_version(&self.core_version)?
+            .query(&self)?
             .build();
         let mut res = client().send(req).await.unwrap();
         match res.status() {
@@ -692,7 +676,7 @@ impl UserDict {
 ///
 /// This result returns word UUID.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct UserDictWord {
     ///言葉の表層形
     pub surface: String,
@@ -700,8 +684,10 @@ pub struct UserDictWord {
     pub pronunciation: String,
     /// アクセント型(音が下がる場所)
     pub accent_type: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub word_type: Option<WordType>,
     ///単語の優先度
+    ///     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<i32>,
 }
 
@@ -709,22 +695,8 @@ impl UserDictWord {
     pub async fn call(self, server: &str) -> Result<String, APIError> {
         let req = client()
             .post(format!("http://{}/user_dict_word", server))
-            .query(&[
-                ("surface", self.surface),
-                ("pronunciation", self.pronunciation),
-            ])?
-            .query(&[("accent_type", self.accent_type)])?;
-        let req = if let Some(priority) = self.priority {
-            req.query(&[("priority", priority)])?
-        } else {
-            req
-        };
-        let req = if let Some(word_type) = self.word_type {
-            req.query(&[("word_type", word_type.to_string())])?
-        } else {
-            req
-        }
-        .build();
+            .query(&self)?
+            .build();
         let mut res = client().send(req).await.unwrap();
         match res.status() {
             StatusCode::UnprocessableEntity => {
@@ -738,7 +710,7 @@ impl UserDictWord {
 
 /// rewrite word on user dictionary.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RewriteUserDictWord {
     /// word uuid
     pub uuid: String,
@@ -748,8 +720,10 @@ pub struct RewriteUserDictWord {
     pub pronunciation: String,
     /// アクセント型(音が下がる場所)
     pub accent_type: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub word_type: Option<WordType>,
     ///単語の優先度
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<i32>,
 }
 
@@ -757,22 +731,8 @@ impl RewriteUserDictWord {
     pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
             .put(format!("http://{}/user_dict_word/{}", server, self.uuid))
-            .query(&[
-                ("surface", self.surface),
-                ("pronunciation", self.pronunciation),
-            ])?
-            .query(&[("accent_type", self.accent_type)])?;
-        let req = if let Some(priority) = self.priority {
-            req.query(&[("priority", priority)])?
-        } else {
-            req
-        };
-        let req = if let Some(word_type) = self.word_type {
-            req.query(&[("word_type", word_type.to_string())])?
-        } else {
-            req
-        }
-        .build();
+            .query(&self)?
+            .build();
         let mut res = client().send(req).await.unwrap();
         match res.status() {
             StatusCode::UnprocessableEntity => {
