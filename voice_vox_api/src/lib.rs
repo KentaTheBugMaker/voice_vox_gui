@@ -1,18 +1,26 @@
 //!
 //! VoiceVox 0.11.4 api implementation.
 //!
+#[cfg(feature = "backend_reqwest")]
+pub mod reqwest_api;
+#[cfg(feature = "backend_surf")]
+pub mod surf_api;
 
-pub mod api;
+#[cfg(all(not(feature = "backend_surf"), feature = "backend_reqwest"))]
+pub use reqwest_api as api;
+#[cfg(all(not(feature = "backend_reqwest"), feature = "backend_surf"))]
+pub use surf_api as api;
+
 pub mod api_schema;
 #[cfg(test)]
 mod test {
     use crate::{
-        api::{
+        api_schema::WordType,
+        reqwest_api::{
             AudioQuery, ConnectWaves, CoreVersions, DeleteUserDictWord, MultiSynthesis, Presets,
             RewriteUserDictWord, SpeakerInfo, Speakers, SupportedDevices, SynthesisMorphing,
             UserDict, UserDictWord, Version,
         },
-        api_schema::WordType,
     };
 
     #[tokio::test]

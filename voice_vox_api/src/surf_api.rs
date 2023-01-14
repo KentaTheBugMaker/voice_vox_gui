@@ -7,19 +7,19 @@ use crate::api_schema::{
     ParseKanaBadRequest, WordType,
 };
 
-use base64::{Engine, engine};
+use base64::{engine, Engine};
 use once_cell::race::OnceBox;
-use reqwest::{Error, StatusCode};
 use std::{collections::HashMap, convert::TryInto, io::ErrorKind};
+use surf::{Error, StatusCode};
 
 pub type CoreVersion = Option<String>;
 
-///シングルトン reqwest::Client
-static CLIENT: OnceBox<reqwest::Client> = once_cell::race::OnceBox::new();
+///シングルトン surf::Client
+static CLIENT: OnceBox<surf::Client> = once_cell::race::OnceBox::new();
 
 ///クライアントのシングルトンの作成/取得を行う.
-fn client() -> &'static reqwest::Client {
-    CLIENT.get_or_init(|| Box::new(reqwest::Client::new()))
+fn client() -> &'static surf::Client {
+    CLIENT.get_or_init(|| Box::new(surf::Client::new()))
 }
 
 /// # 音声合成用のクエリを作成する
@@ -28,7 +28,7 @@ fn client() -> &'static reqwest::Client {
 ///
 #[derive(Debug, Clone)]
 pub struct AudioQuery {
-    pub text: String,
+    pub body_string: String,
     pub speaker: i32,
     pub core_version: CoreVersion,
 }
@@ -37,14 +37,16 @@ impl AudioQuery {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::AudioQuery, APIError> {
         let request = client()
             .post(format!("http://{}/audio_query", server))
-            .query(&[("speaker", self.speaker)])
-            .add_core_version(&&self.core_version)
-            .query(&[("text", self.text)])
-            .build()?;
-        let res = client().execute(request).await.unwrap();
+            .query(&[("speaker", self.speaker)])?
+            .add_core_version(&&self.core_version)?
+            .query(&[("body_string", self.body_string)])?
+            .build();
+        let mut res = client().send(request).await?;
         match res.status() {
-            StatusCode::OK => Ok(res.json::<_>().await?),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(res.body_json::<_>().await?),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -57,7 +59,7 @@ impl AudioQuery {
 ///
 #[derive(Debug, Clone)]
 pub struct AudioQueryFromPreset {
-    pub text: String,
+    pub body_string: String,
     pub preset_id: i32,
     pub core_version: CoreVersion,
 }
@@ -66,14 +68,16 @@ impl AudioQueryFromPreset {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::AudioQuery, APIError> {
         let request = client()
             .post(format!("http://{}/audio_query_from_preset", server))
-            .query(&[("preset_id", self.preset_id)])
-            .add_core_version(&&self.core_version)
-            .query(&[("text", self.text)])
-            .build()?;
-        let res = client().execute(request).await.unwrap();
+            .query(&[("preset_id", self.preset_id)])?
+            .add_core_version(&&self.core_version)?
+            .query(&[("body_string", self.body_string)])?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.json::<_>().await?),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(res.body_json::<_>().await?),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -92,7 +96,7 @@ impl AudioQueryFromPreset {
 ///
 #[derive(Debug, Clone)]
 pub struct AccentPhrases {
-    pub text: String,
+    pub body_string: String,
     pub speaker: i32,
     pub is_kana: Option<bool>,
     pub core_version: CoreVersion,
@@ -104,14 +108,14 @@ pub enum AccentPhrasesErrors {
     ApiError(APIError),
 }
 
-impl From<reqwest::Error> for AccentPhrasesErrors {
+impl From<surf::Error> for AccentPhrasesErrors {
     fn from(e: Error) -> Self {
         AccentPhrasesErrors::ApiError(e.into())
     }
 }
 
-impl From<reqwest::StatusCode> for AccentPhrasesErrors {
-    fn from(e: reqwest::StatusCode) -> Self {
+impl From<surf::StatusCode> for AccentPhrasesErrors {
+    fn from(e: surf::StatusCode) -> Self {
         AccentPhrasesErrors::ApiError(e.into())
     }
 }
@@ -120,19 +124,19 @@ impl AccentPhrases {
     pub async fn call(self, server: &str) -> Result<AccentPhrasesResponse, AccentPhrasesErrors> {
         let request = client()
             .post(format!("http://{}/accent_phrases", server))
-            .query(&[("speaker", self.speaker)])
-            .add_core_version(&self.core_version)
-            .query(&[("is_kana", self.is_kana.unwrap_or(false))])
-            .query(&[("text", self.text)])
-            .build()?;
-        let res = client().execute(request).await.unwrap();
+            .query(&[("speaker", self.speaker)])?
+            .add_core_version(&self.core_version)?
+            .query(&[("is_kana", self.is_kana.unwrap_or(false))])?
+            .query(&[("body_string", self.body_string)])?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.json::<_>().await?),
-            StatusCode::BAD_REQUEST => {
-                Err(AccentPhrasesErrors::KanaParseError(res.json::<_>().await?))
-            }
-            StatusCode::UNPROCESSABLE_ENTITY => Err(AccentPhrasesErrors::ApiError(
-                APIError::Validation(res.json::<_>().await?),
+            StatusCode::Ok => Ok(res.body_json::<_>().await?),
+            StatusCode::BadRequest => Err(AccentPhrasesErrors::KanaParseError(
+                res.body_json::<_>().await?,
+            )),
+            StatusCode::UnprocessableEntity => Err(AccentPhrasesErrors::ApiError(
+                APIError::Validation(res.body_json::<_>().await?),
             )),
             x => Err(x.into()),
         }
@@ -153,14 +157,16 @@ impl MoraData {
     pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
             .post(format!("http://{}/mora_data", server))
-            .query(&[("speaker", self.speaker)])
-            .add_core_version(&self.core_version)
-            .json(&self.accent_phrases)
-            .build()?;
-        let res = client().execute(request).await.unwrap();
+            .query(&[("speaker", self.speaker)])?
+            .add_core_version(&self.core_version)?
+            .body_json(&self.accent_phrases)?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.json::<_>().await?),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(res.body_json::<_>().await?),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -180,14 +186,16 @@ impl MoraLength {
     pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
             .post(format!("http://{}/mora_length", server))
-            .query(&[("speaker", self.speaker)])
-            .add_core_version(&self.core_version)
-            .json(&self.accent_phrases)
-            .build()?;
-        let res = client().execute(request).await.unwrap();
+            .query(&[("speaker", self.speaker)])?
+            .add_core_version(&self.core_version)?
+            .body_json(&self.accent_phrases)?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.json::<_>().await?),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(res.body_json::<_>().await?),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -207,14 +215,16 @@ impl MoraPitch {
     pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
             .post(format!("http://{}/mora_pitch", server))
-            .query(&[("speaker", self.speaker)])
-            .add_core_version(&self.core_version)
-            .json(&self.accent_phrases)
-            .build()?;
-        let res = client().execute(request).await.unwrap();
+            .query(&[("speaker", self.speaker)])?
+            .add_core_version(&self.core_version)?
+            .body_json(&self.accent_phrases)?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.json::<_>().await?),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(res.body_json::<_>().await?),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -227,7 +237,7 @@ pub struct Synthesis {
     pub speaker: i32,
     pub enable_interrogative_upspeak: Option<bool>,
     pub core_version: CoreVersion,
-    // in body json.
+    // in body body_json.
     pub audio_query: crate::api_schema::AudioQuery,
 }
 
@@ -235,18 +245,20 @@ impl Synthesis {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/synthesis", server))
-            .query(&[("speaker", self.speaker)])
+            .query(&[("speaker", self.speaker)])?
             .query(&[(
                 "enable_interrogative_upspeak",
                 self.enable_interrogative_upspeak.unwrap_or(true),
-            )])
-            .add_core_version(&self.core_version)
-            .json(&self.audio_query)
-            .build()?;
-        let res = client().execute(request).await.unwrap();
+            )])?
+            .add_core_version(&self.core_version)?
+            .body_json(&self.audio_query)?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.bytes().await.unwrap_or_default().to_vec()),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(res.body_bytes().await.unwrap_or_default().to_vec()),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -258,7 +270,7 @@ pub struct CancellableSynthesis {
     // in query
     pub speaker: i32,
     pub core_version: CoreVersion,
-    // in body json.
+    // in body body_json.
     pub audio_query: crate::api_schema::AudioQuery,
 }
 
@@ -266,14 +278,16 @@ impl CancellableSynthesis {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/cancellable_synthesis", server))
-            .query(&[("speaker", self.speaker)])
-            .add_core_version(&self.core_version)
-            .json(&self.audio_query)
-            .build()?;
-        let res = client().execute(request).await.unwrap();
+            .query(&[("speaker", self.speaker)])?
+            .add_core_version(&self.core_version)?
+            .body_json(&self.audio_query)?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.bytes().await.unwrap_or_default().to_vec()),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(res.body_bytes().await.unwrap_or_default().to_vec()),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -287,7 +301,7 @@ pub struct MultiSynthesis {
     // in query
     pub speaker: i32,
     pub core_version: CoreVersion,
-    // in body json.
+    // in body body_json.
     pub audio_query: Vec<crate::api_schema::AudioQuery>,
 }
 
@@ -295,15 +309,16 @@ impl MultiSynthesis {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
             .post(format!("http://{}/multi_synthesis", server))
-            .query(&[("speaker", self.speaker)])
-            .add_core_version(&self.core_version)
-            .json(&self.audio_query)
-            .build()
-            .unwrap();
-        let res = client().execute(request).await.unwrap();
+            .query(&[("speaker", self.speaker)])?
+            .add_core_version(&self.core_version)?
+            .body_json(&self.audio_query)?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.bytes().await.unwrap_or_default().to_vec()),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(res.body_bytes().await.unwrap_or_default().to_vec()),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -319,7 +334,7 @@ pub struct SynthesisMorphing {
     pub target_speaker: i32,
     pub morph_rate: f64,
     pub core_version: CoreVersion,
-    // in body json.
+    // in body body_json.
     pub audio_query: crate::api_schema::AudioQuery,
 }
 
@@ -330,16 +345,18 @@ impl SynthesisMorphing {
             .query(&[
                 ("base_speaker", self.base_speaker),
                 ("target_speaker", self.target_speaker),
-            ])
-            .query(&[("morph_rate", self.morph_rate)])
-            .add_core_version(&self.core_version)
-            .json(&self.audio_query)
-            .build()
-            .unwrap();
-        let res = client().execute(request).await.unwrap();
+            ])?
+            .query(&[("morph_rate", self.morph_rate)])?
+            .add_core_version(&self.core_version)?
+            .body_json(&self.audio_query)?
+            .build();
+
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.bytes().await.unwrap_or_default().to_vec()),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(res.body_bytes().await.unwrap_or_default().to_vec()),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -363,13 +380,16 @@ impl ConnectWaves {
         }
         let request = client()
             .post(format!("http://{}/connect_waves", server))
-            .json(&buffer)
-            .build()
-            .unwrap();
-        let res = client().execute(request).await.unwrap();
+            .body_json(&buffer)?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(engine::general_purpose::STANDARD.decode(res.text().await?.as_bytes()).unwrap_or_default()),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::Ok => Ok(engine::general_purpose::STANDARD
+                .decode(res.body_string().await?.as_bytes())
+                .unwrap_or_default()),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }
@@ -380,13 +400,10 @@ pub struct Presets;
 
 impl Presets {
     pub async fn call(self, server: &str) -> Result<Vec<crate::api_schema::Preset>, APIError> {
-        let request = client()
-            .get(format!("http://{}/presets", server))
-            .build()
-            .unwrap();
-        let res = client().execute(request).await.unwrap();
+        let request = client().get(format!("http://{}/presets", server)).build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.json::<Vec<crate::api_schema::Preset>>().await?),
+            StatusCode::Ok => Ok(res.body_json::<Vec<crate::api_schema::Preset>>().await?),
             x => Err(x.into()),
         }
     }
@@ -397,13 +414,10 @@ pub struct Version;
 
 impl Version {
     pub async fn call(self, server: &str) -> Result<Option<String>, APIError> {
-        let request = client()
-            .get(format!("http://{}/version", server))
-            .build()
-            .unwrap();
-        let res = client().execute(request).await.unwrap();
+        let request = client().get(format!("http://{}/version", server)).build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.json::<Option<String>>().await?),
+            StatusCode::Ok => Ok(res.body_json::<Option<String>>().await?),
             x => Err(x.into()),
         }
     }
@@ -416,11 +430,10 @@ impl CoreVersions {
     pub async fn call(self, server: &str) -> Result<Vec<String>, APIError> {
         let request = client()
             .get(format!("http://{}/core_versions", server))
-            .build()
-            .unwrap();
-        let res = client().execute(request).await.unwrap();
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res.json::<Vec<String>>().await?),
+            StatusCode::Ok => Ok(res.body_json::<Vec<String>>().await?),
             x => Err(x.into()),
         }
     }
@@ -435,13 +448,14 @@ impl Speakers {
     pub async fn call(self, server: &str) -> Result<Vec<crate::api_schema::Speaker>, APIError> {
         let request = client()
             .get(format!("http://{}/speakers", server))
-            .add_core_version(&self.core_version)
-            .build()
-            .unwrap();
-        let res = client().execute(request).await.unwrap();
+            .add_core_version(&self.core_version)?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::OK => Ok(res.json::<Vec<crate::api_schema::Speaker>>().await?),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::Ok => Ok(res.body_json::<Vec<crate::api_schema::Speaker>>().await?),
             x => Err(x.into()),
         }
     }
@@ -457,15 +471,16 @@ impl SpeakerInfo {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::SpeakerInfo, APIError> {
         let req = client()
             .get(format!("http://{}/speaker_info", server))
-            .query(&[("speaker_uuid", self.speaker_uuid)])
-            .add_core_version(&self.core_version)
-            .build()
-            .unwrap();
-        let res = client().execute(req).await.unwrap();
+            .query(&[("speaker_uuid", self.speaker_uuid)])?
+            .add_core_version(&self.core_version)?
+            .build();
+        let mut res = client().send(req).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::OK => res
-                .json::<crate::api_schema::SpeakerInfoRaw>()
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::Ok => res
+                .body_json::<crate::api_schema::SpeakerInfoRaw>()
                 .await?
                 .try_into()
                 .map_err(|_| APIError::Io(std::io::Error::from(ErrorKind::InvalidData))),
@@ -483,39 +498,44 @@ impl SupportedDevices {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::SupportedDevices, APIError> {
         let request = client()
             .get(format!("http://{}/supported_devices", server))
-            .add_core_version(&self.core_version)
-            .build()
-            .unwrap();
-        let res = client().execute(request).await.unwrap();
+            .add_core_version(&self.core_version)?
+            .build();
+        let mut res = client().send(request).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::OK => Ok(res.json::<crate::api_schema::SupportedDevices>().await?),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::Ok => Ok(res
+                .body_json::<crate::api_schema::SupportedDevices>()
+                .await?),
             x => Err(x.into()),
         }
     }
 }
 
 pub trait AddCoreVersion {
-    fn add_core_version(self, core_version: &CoreVersion) -> Self;
+    fn add_core_version(self, core_version: &CoreVersion) -> Result<Self, surf::Error>
+    where
+        Self: Sized;
 }
 
-impl AddCoreVersion for reqwest::RequestBuilder {
-    fn add_core_version(self, core_version: &CoreVersion) -> Self {
+impl AddCoreVersion for surf::RequestBuilder {
+    fn add_core_version(self, core_version: &CoreVersion) -> Result<Self, surf::Error> {
         if let Some(cv) = &core_version {
             self.query(&[("core_version", cv)])
         } else {
-            self
+            Ok(self)
         }
     }
 }
 
-/// Clone is implemented but Io and Reqwest errors will converted to Unknown error.
+/// Clone is implemented but Io and surf errors will converted to Unknown error.
 ///
 #[derive(Debug)]
 pub enum APIError {
     Validation(HttpValidationError),
     Io(std::io::Error),
-    Reqwest(reqwest::Error),
+    Surf(surf::Error),
     Unknown,
 }
 
@@ -524,15 +544,15 @@ impl Clone for APIError {
         match self {
             Self::Validation(arg0) => Self::Validation(arg0.clone()),
             Self::Io(_) => Self::Unknown,
-            Self::Reqwest(_) => Self::Unknown,
+            Self::Surf(_) => Self::Unknown,
             Self::Unknown => Self::Unknown,
         }
     }
 }
 
-impl From<reqwest::Error> for APIError {
+impl From<surf::Error> for APIError {
     fn from(e: Error) -> Self {
-        APIError::Reqwest(e)
+        APIError::Surf(e)
     }
 }
 
@@ -558,13 +578,14 @@ impl DownloadableLibraries {
     ) -> Result<crate::api_schema::DownloadableLibraries, APIError> {
         let req = client()
             .get(format!("http://{}/downloadble_libraries", server))
-            .build()
-            .unwrap();
-        let res = client().execute(req).await.unwrap();
+            .build();
+        let mut res = client().send(req).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::OK => res
-                .json::<crate::api_schema::DownloadableLibrariesRaw>()
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::Ok => res
+                .body_json::<crate::api_schema::DownloadableLibrariesRaw>()
                 .await?
                 .try_into()
                 .map_err(|_| APIError::Io(std::io::Error::from(ErrorKind::InvalidData))),
@@ -583,14 +604,15 @@ impl InitializeSpeaker {
     pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
             .post(format!("http://{}/initialize_speaker", server))
-            .query(&[("speaker", self.speaker)])
-            .add_core_version(&self.core_version)
-            .build()
-            .unwrap();
-        let res = client().execute(req).await.unwrap();
+            .query(&[("speaker", self.speaker)])?
+            .add_core_version(&self.core_version)?
+            .build();
+        let mut res = client().send(req).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::NO_CONTENT => Ok(()),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::NoContent => Ok(()),
             x => Err(x.into()),
         }
     }
@@ -606,14 +628,15 @@ impl IsInitializedSpeaker {
     pub async fn call(self, server: &str) -> Result<bool, APIError> {
         let req = client()
             .get(format!("http://{}/is_initialized_speaker", server))
-            .query(&[("speaker", self.speaker)])
-            .add_core_version(&self.core_version)
-            .build()
-            .unwrap();
-        let res = client().execute(req).await.unwrap();
+            .query(&[("speaker", self.speaker)])?
+            .add_core_version(&self.core_version)?
+            .build();
+        let mut res = client().send(req).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::OK => Ok(res.json::<bool>().await?),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::Ok => Ok(res.body_json::<bool>().await?),
             x => Err(x.into()),
         }
     }
@@ -626,13 +649,14 @@ impl EngineManifest {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::EngineManifest, APIError> {
         let req = client()
             .get(format!("http://{}/engine_manifest", server))
-            .build()
-            .unwrap();
-        let res = client().execute(req).await.unwrap();
+            .build();
+        let mut res = client().send(req).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::OK => res
-                .json::<EngineManifestRaw>()
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::Ok => res
+                .body_json::<EngineManifestRaw>()
                 .await?
                 .try_into()
                 .map_err(|_| APIError::Io(std::io::Error::from(ErrorKind::InvalidData))),
@@ -653,14 +677,11 @@ impl UserDict {
         self,
         server: &str,
     ) -> Result<HashMap<String, crate::api_schema::UserDictWord>, APIError> {
-        let req = client()
-            .get(format!("http://{}/user_dict", server))
-            .build()
-            .unwrap();
-        let res = client().execute(req).await.unwrap();
+        let req = client().get(format!("http://{}/user_dict", server)).build();
+        let mut res = client().send(req).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(res
-                .json::<HashMap<String, crate::api_schema::UserDictWord>>()
+            StatusCode::Ok => Ok(res
+                .body_json::<HashMap<String, crate::api_schema::UserDictWord>>()
                 .await?),
             x => Err(x.into()),
         }
@@ -691,24 +712,25 @@ impl UserDictWord {
             .query(&[
                 ("surface", self.surface),
                 ("pronunciation", self.pronunciation),
-            ])
-            .query(&[("accent_type", self.accent_type)]);
+            ])?
+            .query(&[("accent_type", self.accent_type)])?;
         let req = if let Some(priority) = self.priority {
-            req.query(&[("priority", priority)])
+            req.query(&[("priority", priority)])?
         } else {
             req
         };
         let req = if let Some(word_type) = self.word_type {
-            req.query(&[("word_type", word_type.to_string())])
+            req.query(&[("word_type", word_type.to_string())])?
         } else {
             req
         }
-        .build()
-        .unwrap();
-        let res = client().execute(req).await.unwrap();
+        .build();
+        let mut res = client().send(req).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::OK => Ok(res.text().await?),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::Ok => Ok(res.body_string().await?),
             x => Err(x.into()),
         }
     }
@@ -738,24 +760,25 @@ impl RewriteUserDictWord {
             .query(&[
                 ("surface", self.surface),
                 ("pronunciation", self.pronunciation),
-            ])
-            .query(&[("accent_type", self.accent_type)]);
+            ])?
+            .query(&[("accent_type", self.accent_type)])?;
         let req = if let Some(priority) = self.priority {
-            req.query(&[("priority", priority)])
+            req.query(&[("priority", priority)])?
         } else {
             req
         };
         let req = if let Some(word_type) = self.word_type {
-            req.query(&[("word_type", word_type.to_string())])
+            req.query(&[("word_type", word_type.to_string())])?
         } else {
             req
         }
-        .build()
-        .unwrap();
-        let res = client().execute(req).await.unwrap();
+        .build();
+        let mut res = client().send(req).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::NO_CONTENT => Ok(()),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::NoContent => Ok(()),
             x => Err(x.into()),
         }
     }
@@ -774,12 +797,13 @@ impl DeleteUserDictWord {
     pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
             .delete(format!("http://{}/user_dict_word/{}", server, self.uuid))
-            .build()
-            .unwrap();
-        let res = client().execute(req).await.unwrap();
+            .build();
+        let mut res = client().send(req).await.unwrap();
         match res.status() {
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
-            StatusCode::NO_CONTENT => Ok(()),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
+            StatusCode::NoContent => Ok(()),
             x => Err(x.into()),
         }
     }
@@ -797,13 +821,14 @@ impl ImportUserDict {
     pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
             .post(format!("http://{}/import_user_dict", server))
-            .json(&self.dictionary)
-            .build()
-            .unwrap();
-        let res = client().execute(req).await?;
+            .body_json(&self.dictionary)?
+            .build();
+        let mut res = client().send(req).await?;
         match res.status() {
-            StatusCode::NO_CONTENT => Ok(()),
-            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            StatusCode::NoContent => Ok(()),
+            StatusCode::UnprocessableEntity => {
+                Err(APIError::Validation(res.body_json::<_>().await?))
+            }
             x => Err(x.into()),
         }
     }

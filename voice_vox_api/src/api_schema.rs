@@ -279,7 +279,9 @@ impl TryFrom<StyleInfoRaw> for StyleInfo {
     fn try_from(raw: StyleInfoRaw) -> Result<Self, <Self as TryFrom<StyleInfoRaw>>::Error> {
         Ok(Self {
             id: raw.id,
-            icon: engine::general_purpose::STANDARD.decode(raw.icon).map_err(|_| TryFromRawError::Base64Decode)?,
+            icon: engine::general_purpose::STANDARD
+                .decode(raw.icon)
+                .map_err(|_| TryFromRawError::Base64Decode)?,
             voice_samples: raw
                 .voice_samples
                 .iter()
@@ -330,7 +332,9 @@ impl TryFrom<SpeakerInfoRaw> for SpeakerInfo {
     fn try_from(mut raw: SpeakerInfoRaw) -> Result<Self, Self::Error> {
         Ok(Self {
             policy: raw.policy,
-            portrait: engine::general_purpose::STANDARD.decode(raw.portrait).map_err(|_| TryFromRawError::Base64Decode)?,
+            portrait: engine::general_purpose::STANDARD
+                .decode(raw.portrait)
+                .map_err(|_| TryFromRawError::Base64Decode)?,
             style_infos: raw
                 .style_infos
                 .drain(..)
@@ -448,7 +452,9 @@ impl TryFrom<EngineManifestRaw> for EngineManifest {
             name: raw.name,
             uuid: raw.uuid,
             url: raw.url,
-            icon: engine::general_purpose::STANDARD.decode(raw.icon).map_err(|_| TryFromRawError::Base64Decode)?,
+            icon: engine::general_purpose::STANDARD
+                .decode(raw.icon)
+                .map_err(|_| TryFromRawError::Base64Decode)?,
             default_sampling_rate: raw.default_sampling_rate,
             term_of_service: raw.term_of_service,
             update_infos: raw.update_infos,
