@@ -7,6 +7,7 @@ use crate::api_schema::{
     ParseKanaBadRequest, WordType,
 };
 
+use base64::{Engine, engine};
 use once_cell::race::OnceBox;
 use reqwest::{Error, StatusCode};
 use std::{collections::HashMap, convert::TryInto, io::ErrorKind};
@@ -358,7 +359,7 @@ impl ConnectWaves {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let mut buffer = Vec::new();
         for wave in self.waves {
-            buffer.push(base64::encode(wave));
+            buffer.push(engine::general_purpose::STANDARD.encode(wave));
         }
         let request = client()
             .post(format!("http://{}/connect_waves", server))
@@ -367,7 +368,7 @@ impl ConnectWaves {
             .unwrap();
         let res = client().execute(request).await.unwrap();
         match res.status() {
-            StatusCode::OK => Ok(base64::decode(res.text().await?).unwrap_or_default()),
+            StatusCode::OK => Ok(engine::general_purpose::STANDARD.decode(res.text().await?.as_bytes()).unwrap_or_default()),
             StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
             x => Err(x.into()),
         }

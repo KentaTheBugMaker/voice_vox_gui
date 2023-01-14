@@ -1,6 +1,7 @@
 //! definition of VoiceVox openapi schema section.
 #![allow(dead_code)]
 
+use base64::{engine, Engine};
 use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 
@@ -278,11 +279,11 @@ impl TryFrom<StyleInfoRaw> for StyleInfo {
     fn try_from(raw: StyleInfoRaw) -> Result<Self, <Self as TryFrom<StyleInfoRaw>>::Error> {
         Ok(Self {
             id: raw.id,
-            icon: base64::decode(raw.icon).map_err(|_| TryFromRawError::Base64Decode)?,
+            icon: engine::general_purpose::STANDARD.decode(raw.icon).map_err(|_| TryFromRawError::Base64Decode)?,
             voice_samples: raw
                 .voice_samples
                 .iter()
-                .filter_map(|b64| base64::decode(b64).ok())
+                .filter_map(|b64| engine::general_purpose::STANDARD.decode(b64).ok())
                 .collect(),
         })
     }
@@ -292,11 +293,11 @@ impl From<StyleInfo> for StyleInfoRaw {
     fn from(mut si: StyleInfo) -> Self {
         Self {
             id: si.id,
-            icon: base64::encode(si.icon),
+            icon: engine::general_purpose::STANDARD.encode(si.icon),
             voice_samples: si
                 .voice_samples
                 .drain(..)
-                .map(|bytes| base64::encode(bytes))
+                .map(|bytes| engine::general_purpose::STANDARD.encode(bytes))
                 .collect(),
         }
     }
@@ -329,7 +330,7 @@ impl TryFrom<SpeakerInfoRaw> for SpeakerInfo {
     fn try_from(mut raw: SpeakerInfoRaw) -> Result<Self, Self::Error> {
         Ok(Self {
             policy: raw.policy,
-            portrait: base64::decode(raw.portrait).map_err(|_| TryFromRawError::Base64Decode)?,
+            portrait: engine::general_purpose::STANDARD.decode(raw.portrait).map_err(|_| TryFromRawError::Base64Decode)?,
             style_infos: raw
                 .style_infos
                 .drain(..)
@@ -343,7 +344,7 @@ impl From<SpeakerInfo> for SpeakerInfoRaw {
     fn from(mut si: SpeakerInfo) -> Self {
         Self {
             policy: si.policy,
-            portrait: base64::encode(&si.portrait),
+            portrait: engine::general_purpose::STANDARD.encode(&si.portrait),
             style_infos: si.style_infos.drain(..).map(|si| si.into()).collect(),
         }
     }
@@ -447,7 +448,7 @@ impl TryFrom<EngineManifestRaw> for EngineManifest {
             name: raw.name,
             uuid: raw.uuid,
             url: raw.url,
-            icon: base64::decode(raw.icon).map_err(|_| TryFromRawError::Base64Decode)?,
+            icon: engine::general_purpose::STANDARD.decode(raw.icon).map_err(|_| TryFromRawError::Base64Decode)?,
             default_sampling_rate: raw.default_sampling_rate,
             term_of_service: raw.term_of_service,
             update_infos: raw.update_infos,
@@ -465,7 +466,7 @@ impl From<EngineManifest> for EngineManifestRaw {
             name: raw.name,
             uuid: raw.uuid,
             url: raw.url,
-            icon: base64::encode(raw.icon),
+            icon: engine::general_purpose::STANDARD.encode(raw.icon),
             default_sampling_rate: raw.default_sampling_rate,
             term_of_service: raw.term_of_service,
             update_infos: raw.update_infos,
