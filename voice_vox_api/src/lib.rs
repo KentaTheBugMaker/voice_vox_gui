@@ -1,5 +1,5 @@
 //!
-//! VoiceVox 0.11.4 api implementation.
+//! VoiceVox 0.13.3 api implementation.
 //!
 #[cfg(all(not(feature = "backend_surf"), not(feature = "backend_reqwest")))]
 compile_error!("you need to enable backend_surf or backend_reqwest");

@@ -17,7 +17,7 @@ use main_page::InTabPane;
 use serde::{Deserialize, Serialize};
 
 use toolbar::{build_configure_ui, ConfigureMessage, ToolBarConfig, ToolBarKind};
-use voice_vox_api::surf_api::{APIError, SpeakerInfo};
+use voice_vox_api::api::{APIError, SpeakerInfo};
 fn main() -> iced::Result {
     VoiceVox::run(Settings {
         default_font: Some(include_bytes!("../font/NotoSansCJKjp-Regular.otf")),
@@ -61,10 +61,10 @@ pub(crate) enum APIResult {
 
 #[derive(Debug, Clone)]
 pub(crate) enum APICall {
-    Speakers(voice_vox_api::surf_api::Speakers),
+    Speakers(voice_vox_api::api::Speakers),
     SpeakerInfo(
         voice_vox_api::api_schema::Speaker,
-        voice_vox_api::surf_api::SpeakerInfo,
+        voice_vox_api::api::SpeakerInfo,
     ),
 }
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
@@ -166,7 +166,7 @@ impl Application for VoiceVox {
                 }
                 // collect informations from engine.
                 Command::perform(
-                    voice_vox_api::surf_api::Speakers { core_version: None }
+                    voice_vox_api::api::Speakers { core_version: None }
                         .call("localhost:50021"),
                     |res| Message::APIResult(APIResult::Speakers(res)),
                 )
