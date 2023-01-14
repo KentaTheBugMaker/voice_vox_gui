@@ -55,7 +55,7 @@ pub struct AudioQueryInProject {
     pub postPhonemeLength: f64,
     pub outputSamplingRate: i32,
     pub outputStereo: bool,
-    pub kana: Option<String>,
+    pub kana: String,
 }
 
 impl From<AudioQuery> for AudioQueryInProject {
@@ -74,7 +74,7 @@ impl From<AudioQuery> for AudioQueryInProject {
             postPhonemeLength: aq.postPhonemeLength,
             outputSamplingRate: aq.outputSamplingRate,
             outputStereo: aq.outputStereo,
-            kana: aq.kana,
+            kana: aq.kana.unwrap_or_default(),
         }
     }
 }
@@ -95,7 +95,7 @@ impl From<AudioQueryInProject> for AudioQuery {
             postPhonemeLength: aq.postPhonemeLength,
             outputSamplingRate: aq.outputSamplingRate,
             outputStereo: aq.outputStereo,
-            kana: aq.kana,
+            kana: Some(aq.kana),
         }
     }
 }

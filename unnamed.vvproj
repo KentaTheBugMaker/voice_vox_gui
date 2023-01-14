@@ -1,18 +1,18 @@
 {
   "appVersion": "0.13.3",
   "audioKeys": [
-    "6db747b0-4c03-4456-9618-4602068491d0"
+    "b80eb789-bbe7-4900-99b2-ce59f65571e6"
   ],
   "audioItems": {
-    "6db747b0-4c03-4456-9618-4602068491d0": {
+    "b80eb789-bbe7-4900-99b2-ce59f65571e6": {
       "text": "",
       "styleId": 0,
       "query": {
         "accentPhrases": [],
         "speedScale": 1.0,
         "pitchScale": 0.0,
-        "intonationScale": 1.0,
-        "volumeScale": 1.362,
+        "intonationScale": 1.186,
+        "volumeScale": 1.0,
         "prePhonemeLength": 0.1,
         "postPhonemeLength": 0.1,
         "outputSamplingRate": 24000,

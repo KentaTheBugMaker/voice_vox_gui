@@ -73,6 +73,7 @@ struct VoiceVoxState {
     viewing_tab: Option<usize>,
     tabs: Vec<TabContext>,
 }
+
 enum VoiceVox {
     Loading,
     Loaded(State),
@@ -166,8 +167,7 @@ impl Application for VoiceVox {
                 }
                 // collect informations from engine.
                 Command::perform(
-                    voice_vox_api::api::Speakers { core_version: None }
-                        .call("localhost:50021"),
+                    voice_vox_api::api::Speakers { core_version: None }.call("localhost:50021"),
                     |res| Message::APIResult(APIResult::Speakers(res)),
                 )
             }
@@ -184,6 +184,10 @@ impl Application for VoiceVox {
                         FileMenu::ImportText => todo!(),
                         FileMenu::NewProject => {
                             state.persistence.tabs.push(TabContext::default());
+                            if !state.persistence.tabs.is_empty() {
+                                state.persistence.viewing_tab =
+                                    Some(state.persistence.tabs.len() - 1);
+                            }
                             state.tracking_buffer.push(History::new());
                         }
 
