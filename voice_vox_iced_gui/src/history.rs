@@ -45,34 +45,31 @@ pub enum Diff {
 
 #[derive(Debug, Clone)]
 pub struct History {
-    buffer: Vec<Diff>,
-    history_position: usize,
-
+    undo_stack: Vec<Diff>,
+    redo_stack: Vec<Diff>,
     unsquashed_buffer: Vec<Diff>,
+    depth: usize,
 }
 impl History {
     pub(crate) fn new() -> Self {
         Self {
-            buffer: vec![],
-            history_position: 0,
             unsquashed_buffer: Vec::new(),
+            undo_stack: Vec::new(),
+            redo_stack: Vec::new(),
+            depth: 0,
         }
     }
     /// undo
     pub(crate) fn undo(&mut self, tab_context: &mut TabContext) {
-        if self.history_position > 0 {
-            self.history_position -= 1;
-        } else {
-            eprintln!("pumping down to underground!");
-        }
-        if let Some(diff) = self.buffer.get(self.history_position) {
+        if let Some(diff) = self.undo_stack.pop() {
+            self.redo_stack.push(diff.clone());
             match diff {
                 Diff::TextChanged {
                     audio_item_key,
                     before,
                     after: _,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         ai.text = before.clone();
                     }
                 }
@@ -81,9 +78,9 @@ impl History {
                     before,
                     after: _,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.pitchScale = *before;
+                            query.pitchScale = before;
                         }
                     }
                 }
@@ -92,9 +89,9 @@ impl History {
                     before,
                     after: _,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.speedScale = *before;
+                            query.speedScale = before;
                         }
                     }
                 }
@@ -103,9 +100,9 @@ impl History {
                     before,
                     after: _,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.intonationScale = *before;
+                            query.intonationScale = before;
                         }
                     }
                 }
@@ -114,9 +111,9 @@ impl History {
                     before,
                     after: _,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.volumeScale = *before;
+                            query.volumeScale = before;
                         }
                     }
                 }
@@ -125,9 +122,9 @@ impl History {
                     before,
                     after: _,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.prePhonemeLength = *before;
+                            query.prePhonemeLength = before;
                         }
                     }
                 }
@@ -136,33 +133,28 @@ impl History {
                     before,
                     after: _,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.postPhonemeLength = *before;
+                            query.postPhonemeLength = before;
                         }
                     }
                 }
             }
+
+            self.depth += 1;
         }
     }
     /// redo
     pub(crate) fn redo(&mut self, tab_context: &mut TabContext) {
-        if self.buffer.is_empty() {
-            return;
-        }
-        if self.history_position < self.buffer.len() - 1 {
-            self.history_position += 1;
-        } else {
-            eprintln!("pumping up to heaven");
-        }
-        if let Some(diff) = self.buffer.get(self.history_position) {
+        if let Some(diff) = self.redo_stack.pop() {
+            self.undo_stack.push(diff.clone());
             match diff {
                 Diff::TextChanged {
                     audio_item_key,
                     before: _,
                     after,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         ai.text = after.clone();
                     }
                 }
@@ -171,9 +163,9 @@ impl History {
                     before: _,
                     after,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.pitchScale = *after;
+                            query.pitchScale = after;
                         }
                     }
                 }
@@ -182,9 +174,9 @@ impl History {
                     before: _,
                     after,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.speedScale = *after;
+                            query.speedScale = after;
                         }
                     }
                 }
@@ -193,9 +185,9 @@ impl History {
                     before: _,
                     after,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.intonationScale = *after;
+                            query.intonationScale = after;
                         }
                     }
                 }
@@ -204,9 +196,9 @@ impl History {
                     before: _,
                     after,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.volumeScale = *after;
+                            query.volumeScale = after;
                         }
                     }
                 }
@@ -215,9 +207,9 @@ impl History {
                     before: _,
                     after,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.prePhonemeLength = *after;
+                            query.prePhonemeLength = after;
                         }
                     }
                 }
@@ -226,22 +218,20 @@ impl History {
                     before: _,
                     after,
                 } => {
-                    if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
                         if let Some(query) = &mut ai.query {
-                            query.postPhonemeLength = *after;
+                            query.postPhonemeLength = after;
                         }
                     }
                 }
             }
+            self.depth -= 1;
         }
     }
 
     /// record changes and apply changes
     pub(crate) fn apply(&mut self, mut diff: Diff, tab_context: &mut TabContext) {
-        println!("hp= {} len= {}", self.history_position, self.buffer.len());
-        if self.history_position + 1 < self.buffer.len() {
-            self.buffer.truncate(self.history_position);
-        }
+        self.redo_stack.clear();
         match &mut diff {
             Diff::TextChanged {
                 audio_item_key,
@@ -326,6 +316,7 @@ impl History {
                 }
             }
         }
+        self.depth = 0;
         self.unsquashed_buffer.push(diff);
     }
 
@@ -353,8 +344,7 @@ impl History {
                 ) if audio_item_key == b => {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
-                    self.history_position = self.buffer.len();
-                    self.buffer.push(Diff::IntonationChanged {
+                    self.undo_stack.push(Diff::IntonationChanged {
                         audio_item_key,
                         before,
                         after,
@@ -374,8 +364,7 @@ impl History {
                 ) if audio_item_key == b => {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
-                    self.history_position = self.buffer.len();
-                    self.buffer.push(Diff::VolumeChanged {
+                    self.undo_stack.push(Diff::VolumeChanged {
                         audio_item_key,
                         before,
                         after,
@@ -395,8 +384,8 @@ impl History {
                 ) if audio_item_key == b => {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
-                    self.history_position = self.buffer.len();
-                    self.buffer.push(Diff::PitchChanged {
+
+                    self.undo_stack.push(Diff::PitchChanged {
                         audio_item_key,
                         before,
                         after,
@@ -416,8 +405,8 @@ impl History {
                 ) if audio_item_key == b => {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
-                    self.history_position = self.buffer.len();
-                    self.buffer.push(Diff::SpeedChanged {
+
+                    self.undo_stack.push(Diff::SpeedChanged {
                         audio_item_key,
                         before,
                         after,
@@ -437,8 +426,8 @@ impl History {
                 ) if audio_item_key == b => {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
-                    self.history_position = self.buffer.len();
-                    self.buffer.push(Diff::PrePhonemeLengthChanged {
+
+                    self.undo_stack.push(Diff::PrePhonemeLengthChanged {
                         audio_item_key,
                         before,
                         after,
@@ -458,8 +447,8 @@ impl History {
                 ) if audio_item_key == b => {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
-                    self.history_position = self.buffer.len();
-                    self.buffer.push(Diff::PostPhonemeLengthChanged {
+
+                    self.undo_stack.push(Diff::PostPhonemeLengthChanged {
                         audio_item_key,
                         before,
                         after,
@@ -479,8 +468,8 @@ impl History {
                 ) if audio_item_key == b => {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
-                    self.history_position = self.buffer.len();
-                    self.buffer.push(Diff::TextChanged {
+
+                    self.undo_stack.push(Diff::TextChanged {
                         audio_item_key,
                         before,
                         after,
@@ -488,8 +477,7 @@ impl History {
                 }
                 (a, b) => {
                     eprintln!("not supported to squash {:?} {:?}", a, b);
-                    self.history_position = self.buffer.len();
-                    self.buffer.extend_from_slice(&self.unsquashed_buffer);
+                    self.undo_stack.extend_from_slice(&self.unsquashed_buffer);
                     self.unsquashed_buffer.clear();
                 }
             }
@@ -498,23 +486,18 @@ impl History {
         }
     }
     pub(crate) fn build_view(&self) -> Column<crate::Message, Renderer> {
-        self.buffer
-            .iter()
-            .enumerate()
-            .rev()
-            .fold(Column::new(), |column, (idx, diff)| {
-                column.push(Text::new(match diff {
+        let build_text = |diff: &Diff, depth: usize, id: usize| {
+            if id == 0 {
+                Text::new(format!("{} 最新", if id == depth { "*" } else { "" }))
+            } else {
+                Text::new(match diff {
                     Diff::TextChanged {
                         audio_item_key: _,
                         before,
                         after,
                     } => format!(
                         "{} テキスト編集　{} -> {}",
-                        if idx == self.history_position {
-                            "*"
-                        } else {
-                            ""
-                        },
+                        if depth == id { "*" } else { "" },
                         before,
                         after
                     ),
@@ -524,11 +507,7 @@ impl History {
                         after,
                     } => format!(
                         "{} 音高変更　{:.2}-> {:.2}",
-                        if idx == self.history_position {
-                            "*"
-                        } else {
-                            ""
-                        },
+                        if depth == id { "*" } else { "" },
                         before,
                         after
                     ),
@@ -538,11 +517,7 @@ impl History {
                         after,
                     } => format!(
                         "{} 話速変更　{:.2}-> {:.2}",
-                        if idx == self.history_position {
-                            "*"
-                        } else {
-                            ""
-                        },
+                        if depth == id { "*" } else { "" },
                         before,
                         after
                     ),
@@ -552,11 +527,7 @@ impl History {
                         after,
                     } => format!(
                         "{} 抑揚変更　{:.2}-> {:.2}",
-                        if idx == self.history_position {
-                            "*"
-                        } else {
-                            ""
-                        },
+                        if depth == id { "*" } else { "" },
                         before,
                         after
                     ),
@@ -566,11 +537,7 @@ impl History {
                         after,
                     } => format!(
                         "{} 音量変更　{:.2}-> {:.2}",
-                        if idx == self.history_position {
-                            "*"
-                        } else {
-                            ""
-                        },
+                        if depth == id { "*" } else { "" },
                         before,
                         after
                     ),
@@ -580,11 +547,7 @@ impl History {
                         after,
                     } => format!(
                         "{} 開始無音変更　{:.2}-> {:.2}",
-                        if idx == self.history_position {
-                            "*"
-                        } else {
-                            ""
-                        },
+                        if depth == id { "*" } else { "" },
                         before,
                         after
                     ),
@@ -593,16 +556,25 @@ impl History {
                         before,
                         after,
                     } => format!(
-                        "{}終了無音変更　{:.2}-> {:.2}",
-                        if idx == self.history_position {
-                            "*"
-                        } else {
-                            ""
-                        },
+                        "{} 終了無音変更　{:.2}-> {:.2}",
+                        if depth == id { "*" } else { "" },
                         before,
                         after
                     ),
-                }))
+                })
+            }
+        };
+        let once = std::iter::once(DUMMY.get_or_init(|| Diff::TextChanged {
+            audio_item_key: "dummy".to_owned(),
+            before: "dummy".to_owned(),
+            after: "dummy".to_owned(),
+        }));
+        once.chain(self.redo_stack.iter().chain(self.undo_stack.iter().rev()))
+            .enumerate()
+            .fold(Column::new(), |column, (id, diff)| {
+                column.push(build_text(diff, self.depth, id))
             })
     }
 }
+
+static DUMMY: once_cell::sync::OnceCell<Diff> = once_cell::sync::OnceCell::new();
