@@ -6,37 +6,37 @@ use iced::{
 use crate::TabContext;
 #[derive(Debug, Clone)]
 pub enum Diff {
-    TextChanged {
+    Text {
         audio_item_key: String,
         before: String,
         after: String,
     },
-    PitchChanged {
+    Pitch {
         audio_item_key: String,
         before: f64,
         after: f64,
     },
-    SpeedChanged {
+    Speed {
         audio_item_key: String,
         before: f64,
         after: f64,
     },
-    IntonationChanged {
+    Intonation {
         audio_item_key: String,
         before: f64,
         after: f64,
     },
-    VolumeChanged {
+    Volume {
         audio_item_key: String,
         before: f64,
         after: f64,
     },
-    PrePhonemeLengthChanged {
+    PrePhonemeLength {
         audio_item_key: String,
         before: f64,
         after: f64,
     },
-    PostPhonemeLengthChanged {
+    PostPhonemeLength {
         audio_item_key: String,
         before: f64,
         after: f64,
@@ -64,16 +64,16 @@ impl History {
         if let Some(diff) = self.undo_stack.pop() {
             self.redo_stack.push(diff.clone());
             match diff {
-                Diff::TextChanged {
+                Diff::Text {
                     audio_item_key,
                     before,
                     after: _,
                 } => {
                     if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
-                        ai.text = before.clone();
+                        ai.text = before;
                     }
                 }
-                Diff::PitchChanged {
+                Diff::Pitch {
                     audio_item_key,
                     before,
                     after: _,
@@ -84,7 +84,7 @@ impl History {
                         }
                     }
                 }
-                Diff::SpeedChanged {
+                Diff::Speed {
                     audio_item_key,
                     before,
                     after: _,
@@ -95,7 +95,7 @@ impl History {
                         }
                     }
                 }
-                Diff::IntonationChanged {
+                Diff::Intonation {
                     audio_item_key,
                     before,
                     after: _,
@@ -106,7 +106,7 @@ impl History {
                         }
                     }
                 }
-                Diff::VolumeChanged {
+                Diff::Volume {
                     audio_item_key,
                     before,
                     after: _,
@@ -117,7 +117,7 @@ impl History {
                         }
                     }
                 }
-                Diff::PrePhonemeLengthChanged {
+                Diff::PrePhonemeLength {
                     audio_item_key,
                     before,
                     after: _,
@@ -128,7 +128,7 @@ impl History {
                         }
                     }
                 }
-                Diff::PostPhonemeLengthChanged {
+                Diff::PostPhonemeLength {
                     audio_item_key,
                     before,
                     after: _,
@@ -149,16 +149,16 @@ impl History {
         if let Some(diff) = self.redo_stack.pop() {
             self.undo_stack.push(diff.clone());
             match diff {
-                Diff::TextChanged {
+                Diff::Text {
                     audio_item_key,
                     before: _,
                     after,
                 } => {
                     if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
-                        ai.text = after.clone();
+                        ai.text = after;
                     }
                 }
-                Diff::PitchChanged {
+                Diff::Pitch {
                     audio_item_key,
                     before: _,
                     after,
@@ -169,7 +169,7 @@ impl History {
                         }
                     }
                 }
-                Diff::SpeedChanged {
+                Diff::Speed {
                     audio_item_key,
                     before: _,
                     after,
@@ -180,7 +180,7 @@ impl History {
                         }
                     }
                 }
-                Diff::IntonationChanged {
+                Diff::Intonation {
                     audio_item_key,
                     before: _,
                     after,
@@ -191,7 +191,7 @@ impl History {
                         }
                     }
                 }
-                Diff::VolumeChanged {
+                Diff::Volume {
                     audio_item_key,
                     before: _,
                     after,
@@ -202,7 +202,7 @@ impl History {
                         }
                     }
                 }
-                Diff::PrePhonemeLengthChanged {
+                Diff::PrePhonemeLength {
                     audio_item_key,
                     before: _,
                     after,
@@ -213,7 +213,7 @@ impl History {
                         }
                     }
                 }
-                Diff::PostPhonemeLengthChanged {
+                Diff::PostPhonemeLength {
                     audio_item_key,
                     before: _,
                     after,
@@ -233,7 +233,7 @@ impl History {
     pub(crate) fn apply(&mut self, mut diff: Diff, tab_context: &mut TabContext) {
         self.redo_stack.clear();
         match &mut diff {
-            Diff::TextChanged {
+            Diff::Text {
                 audio_item_key,
                 before: before_text,
                 after: after_text,
@@ -243,7 +243,7 @@ impl History {
                     ai.text = after_text.clone();
                 }
             }
-            Diff::PitchChanged {
+            Diff::Pitch {
                 audio_item_key,
                 before,
                 after,
@@ -255,7 +255,7 @@ impl History {
                     }
                 }
             }
-            Diff::SpeedChanged {
+            Diff::Speed {
                 audio_item_key,
                 before,
                 after,
@@ -267,7 +267,7 @@ impl History {
                     }
                 }
             }
-            Diff::IntonationChanged {
+            Diff::Intonation {
                 audio_item_key,
                 before,
                 after,
@@ -279,7 +279,7 @@ impl History {
                     }
                 }
             }
-            Diff::VolumeChanged {
+            Diff::Volume {
                 audio_item_key,
                 before,
                 after,
@@ -291,7 +291,7 @@ impl History {
                     }
                 }
             }
-            Diff::PrePhonemeLengthChanged {
+            Diff::PrePhonemeLength {
                 audio_item_key,
                 before,
                 after,
@@ -303,7 +303,7 @@ impl History {
                     }
                 }
             }
-            Diff::PostPhonemeLengthChanged {
+            Diff::PostPhonemeLength {
                 audio_item_key,
                 before,
                 after,
@@ -331,12 +331,12 @@ impl History {
         {
             match (first.clone(), last.clone()) {
                 (
-                    Diff::IntonationChanged {
+                    Diff::Intonation {
                         audio_item_key,
                         before,
                         after: _,
                     },
-                    Diff::IntonationChanged {
+                    Diff::Intonation {
                         audio_item_key: b,
                         before: _,
                         after,
@@ -344,19 +344,19 @@ impl History {
                 ) if audio_item_key == b => {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
-                    self.undo_stack.push(Diff::IntonationChanged {
+                    self.undo_stack.push(Diff::Intonation {
                         audio_item_key,
                         before,
                         after,
                     });
                 }
                 (
-                    Diff::VolumeChanged {
+                    Diff::Volume {
                         audio_item_key,
                         before,
                         after: _,
                     },
-                    Diff::VolumeChanged {
+                    Diff::Volume {
                         audio_item_key: b,
                         before: _,
                         after,
@@ -364,19 +364,19 @@ impl History {
                 ) if audio_item_key == b => {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
-                    self.undo_stack.push(Diff::VolumeChanged {
+                    self.undo_stack.push(Diff::Volume {
                         audio_item_key,
                         before,
                         after,
                     });
                 }
                 (
-                    Diff::PitchChanged {
+                    Diff::Pitch {
                         audio_item_key,
                         before,
                         after: _,
                     },
-                    Diff::PitchChanged {
+                    Diff::Pitch {
                         audio_item_key: b,
                         before: _,
                         after,
@@ -385,19 +385,19 @@ impl History {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
 
-                    self.undo_stack.push(Diff::PitchChanged {
+                    self.undo_stack.push(Diff::Pitch {
                         audio_item_key,
                         before,
                         after,
                     });
                 }
                 (
-                    Diff::SpeedChanged {
+                    Diff::Speed {
                         audio_item_key,
                         before,
                         after: _,
                     },
-                    Diff::SpeedChanged {
+                    Diff::Speed {
                         audio_item_key: b,
                         before: _,
                         after,
@@ -406,19 +406,19 @@ impl History {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
 
-                    self.undo_stack.push(Diff::SpeedChanged {
+                    self.undo_stack.push(Diff::Speed {
                         audio_item_key,
                         before,
                         after,
                     });
                 }
                 (
-                    Diff::PrePhonemeLengthChanged {
+                    Diff::PrePhonemeLength {
                         audio_item_key,
                         before,
                         after: _,
                     },
-                    Diff::PrePhonemeLengthChanged {
+                    Diff::PrePhonemeLength {
                         audio_item_key: b,
                         before: _,
                         after,
@@ -427,19 +427,19 @@ impl History {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
 
-                    self.undo_stack.push(Diff::PrePhonemeLengthChanged {
+                    self.undo_stack.push(Diff::PrePhonemeLength {
                         audio_item_key,
                         before,
                         after,
                     });
                 }
                 (
-                    Diff::PostPhonemeLengthChanged {
+                    Diff::PostPhonemeLength {
                         audio_item_key,
                         before,
                         after: _,
                     },
-                    Diff::PostPhonemeLengthChanged {
+                    Diff::PostPhonemeLength {
                         audio_item_key: b,
                         before: _,
                         after,
@@ -448,19 +448,19 @@ impl History {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
 
-                    self.undo_stack.push(Diff::PostPhonemeLengthChanged {
+                    self.undo_stack.push(Diff::PostPhonemeLength {
                         audio_item_key,
                         before,
                         after,
                     });
                 }
                 (
-                    Diff::TextChanged {
+                    Diff::Text {
                         audio_item_key,
                         before,
                         after: _,
                     },
-                    Diff::TextChanged {
+                    Diff::Text {
                         audio_item_key: b,
                         before: _,
                         after,
@@ -469,7 +469,7 @@ impl History {
                     //圧縮するので圧縮前バッファを初期化.
                     self.unsquashed_buffer.clear();
 
-                    self.undo_stack.push(Diff::TextChanged {
+                    self.undo_stack.push(Diff::Text {
                         audio_item_key,
                         before,
                         after,
@@ -491,7 +491,7 @@ impl History {
                 Text::new(format!("{} 最新", if id == depth { "*" } else { "" }))
             } else {
                 Text::new(match diff {
-                    Diff::TextChanged {
+                    Diff::Text {
                         audio_item_key: _,
                         before,
                         after,
@@ -501,7 +501,7 @@ impl History {
                         before,
                         after
                     ),
-                    Diff::PitchChanged {
+                    Diff::Pitch {
                         audio_item_key: _,
                         before,
                         after,
@@ -511,7 +511,7 @@ impl History {
                         before,
                         after
                     ),
-                    Diff::SpeedChanged {
+                    Diff::Speed {
                         audio_item_key: _,
                         before,
                         after,
@@ -521,7 +521,7 @@ impl History {
                         before,
                         after
                     ),
-                    Diff::IntonationChanged {
+                    Diff::Intonation {
                         audio_item_key: _,
                         before,
                         after,
@@ -531,7 +531,7 @@ impl History {
                         before,
                         after
                     ),
-                    Diff::VolumeChanged {
+                    Diff::Volume {
                         audio_item_key: _,
                         before,
                         after,
@@ -541,7 +541,7 @@ impl History {
                         before,
                         after
                     ),
-                    Diff::PrePhonemeLengthChanged {
+                    Diff::PrePhonemeLength {
                         audio_item_key: _,
                         before,
                         after,
@@ -551,7 +551,7 @@ impl History {
                         before,
                         after
                     ),
-                    Diff::PostPhonemeLengthChanged {
+                    Diff::PostPhonemeLength {
                         audio_item_key: _,
                         before,
                         after,
@@ -564,7 +564,7 @@ impl History {
                 })
             }
         };
-        let once = std::iter::once(DUMMY.get_or_init(|| Diff::TextChanged {
+        let once = std::iter::once(DUMMY.get_or_init(|| Diff::Text {
             audio_item_key: "dummy".to_owned(),
             before: "dummy".to_owned(),
             after: "dummy".to_owned(),

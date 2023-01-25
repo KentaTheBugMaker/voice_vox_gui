@@ -1,9 +1,9 @@
+//mod character_change_button;
 mod history;
 mod main_page;
 mod project;
 mod toolbar;
-
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use async_std::io::{ReadExt, WriteExt};
 use history::{Diff, History};
@@ -114,19 +114,19 @@ impl Application for VoiceVox {
                     a: Box::new(pane_grid::Configuration::Split {
                         axis: pane_grid::Axis::Vertical,
                         ratio: 0.2,
-                        a: Box::new(pane_grid::Configuration::Pane(InTabPane::CharacterPane)),
+                        a: Box::new(pane_grid::Configuration::Pane(InTabPane::Character)),
                         b: Box::new(pane_grid::Configuration::Split {
                             axis: pane_grid::Axis::Vertical,
                             ratio: 0.5,
-                            a: Box::new(pane_grid::Configuration::Pane(InTabPane::TextPane)),
-                            b: Box::new(pane_grid::Configuration::Pane(InTabPane::ParameterPane)),
+                            a: Box::new(pane_grid::Configuration::Pane(InTabPane::Text)),
+                            b: Box::new(pane_grid::Configuration::Pane(InTabPane::Parameter)),
                         }),
                     }),
                     b: Box::new(pane_grid::Configuration::Split {
                         axis: pane_grid::Axis::Vertical,
                         ratio: 0.5,
-                        a: Box::new(pane_grid::Configuration::Pane(InTabPane::BottomPane)),
-                        b: Box::new(pane_grid::Configuration::Pane(InTabPane::HistroyPane)),
+                        a: Box::new(pane_grid::Configuration::Pane(InTabPane::Bottom)),
+                        b: Box::new(pane_grid::Configuration::Pane(InTabPane::History)),
                     }),
                 };
                 match message {
@@ -136,14 +136,13 @@ impl Application for VoiceVox {
                             dirty: false,
                             saving: false,
                             persistence: state,
-                            opening_page: Page::ToolBarConfig,
+                            opening_page: Page::Main,
                             configure_ui_selected_tool: ToolBarKind::default(),
                             toolbar_ui_temp_config: ToolBarConfig::default(),
 
                             tab_state: PaneGridState::with_configuration(configure),
-                            portrait_and_names: HashMap::new(),
+                            portrait_and_names: BTreeMap::new(),
                             style_id_uuid_table: BTreeMap::new(),
-                            icons: BTreeMap::new(),
                             tracking_buffer: vec![History::new(); buffer_count],
                         });
                     }
@@ -152,14 +151,13 @@ impl Application for VoiceVox {
                             dirty: false,
                             saving: false,
                             persistence: VoiceVoxState::default(),
-                            opening_page: Page::ToolBarConfig,
+                            opening_page: Page::Main,
                             configure_ui_selected_tool: ToolBarKind::default(),
                             toolbar_ui_temp_config: ToolBarConfig::default(),
 
                             tab_state: PaneGridState::with_configuration(configure),
-                            portrait_and_names: HashMap::new(),
+                            portrait_and_names: BTreeMap::new(),
                             style_id_uuid_table: BTreeMap::new(),
-                            icons: BTreeMap::new(),
                             tracking_buffer: Vec::new(),
                         });
                     }
@@ -311,7 +309,7 @@ impl Application for VoiceVox {
                         if let Some(vt) = state.persistence.viewing_tab {
                             if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
                                 state.tracking_buffer[vt].apply(
-                                    Diff::TextChanged {
+                                    Diff::Text {
                                         audio_item_key: key,
                                         before: String::new(),
                                         after: text,
@@ -327,7 +325,7 @@ impl Application for VoiceVox {
                             println!("{:?}", speakers);
 
                             if let Ok(speakers) = speakers {
-                                for speaker in speakers.clone() {
+                                for speaker in speakers {
                                     cmd_buff.push(Command::perform(
                                         SpeakerInfo {
                                             speaker_uuid: speaker.speaker_uuid.clone(),
@@ -350,22 +348,34 @@ impl Application for VoiceVox {
                                     (
                                         widget::image::Handle::from_memory(info.portrait),
                                         speaker.name,
+                                        speaker.styles.iter().map(|x| x.id).collect(),
                                     ),
                                 );
-                                for style in speaker.styles {
-                                    style.name;
-                                }
-                                for style in info.style_infos {
-                                    let id = style.id;
 
-                                    state
-                                        .style_id_uuid_table
-                                        .insert(id, speaker.speaker_uuid.clone());
-                                    state.icons.insert(
-                                        style.id,
-                                        widget::image::Handle::from_memory(style.icon),
-                                    );
-                                }
+                                state.style_id_uuid_table = speaker.styles.iter().fold(
+                                    BTreeMap::new(),
+                                    |mut buffer, speaker_style| {
+                                        if let Some(style_info) = info
+                                            .style_infos
+                                            .iter()
+                                            .find(|style_info| style_info.id == speaker_style.id)
+                                        {
+                                            buffer.insert(
+                                                style_info.id,
+                                                (
+                                                    speaker.speaker_uuid.clone(),
+                                                    speaker_style.name.clone(),
+                                                    widget::image::Handle::from_memory(
+                                                        style_info.icon.clone(),
+                                                    ),
+                                                ),
+                                            );
+                                            buffer
+                                        } else {
+                                            buffer
+                                        }
+                                    },
+                                );
                             }
                         }
                     },
@@ -373,7 +383,7 @@ impl Application for VoiceVox {
                         if let Some(vt) = state.persistence.viewing_tab {
                             if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
                                 state.tracking_buffer[vt].apply(
-                                    Diff::SpeedChanged {
+                                    Diff::Speed {
                                         audio_item_key: key,
                                         before: 0.0,
                                         after,
@@ -387,7 +397,7 @@ impl Application for VoiceVox {
                         if let Some(vt) = state.persistence.viewing_tab {
                             if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
                                 state.tracking_buffer[vt].apply(
-                                    Diff::PitchChanged {
+                                    Diff::Pitch {
                                         audio_item_key: key,
                                         before: 0.0,
                                         after,
@@ -401,7 +411,7 @@ impl Application for VoiceVox {
                         if let Some(vt) = state.persistence.viewing_tab {
                             if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
                                 state.tracking_buffer[vt].apply(
-                                    Diff::IntonationChanged {
+                                    Diff::Intonation {
                                         audio_item_key: key,
                                         before: 0.0,
                                         after,
@@ -415,7 +425,7 @@ impl Application for VoiceVox {
                         if let Some(vt) = state.persistence.viewing_tab {
                             if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
                                 state.tracking_buffer[vt].apply(
-                                    Diff::VolumeChanged {
+                                    Diff::Volume {
                                         audio_item_key: key,
                                         before: 0.0,
                                         after,
@@ -429,7 +439,7 @@ impl Application for VoiceVox {
                         if let Some(vt) = state.persistence.viewing_tab {
                             if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
                                 state.tracking_buffer[vt].apply(
-                                    Diff::PrePhonemeLengthChanged {
+                                    Diff::PrePhonemeLength {
                                         audio_item_key: key,
                                         before: 0.0,
                                         after,
@@ -443,7 +453,7 @@ impl Application for VoiceVox {
                         if let Some(vt) = state.persistence.viewing_tab {
                             if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
                                 state.tracking_buffer[vt].apply(
-                                    Diff::PostPhonemeLengthChanged {
+                                    Diff::PostPhonemeLength {
                                         audio_item_key: key,
                                         before: 0.0,
                                         after,
@@ -547,7 +557,6 @@ impl Application for VoiceVox {
                         &state.persistence.tabs,
                         &state.portrait_and_names,
                         &state.style_id_uuid_table,
-                        &state.icons,
                         &state.tracking_buffer,
                     )
                 }
@@ -574,9 +583,10 @@ struct State {
     persistence: VoiceVoxState,
     tracking_buffer: Vec<History>,
     tab_state: PaneGridState<InTabPane>,
-    portrait_and_names: HashMap<String, (iced::widget::image::Handle, String)>,
-    style_id_uuid_table: BTreeMap<i32, String>,
-    icons: BTreeMap<i32, iced::widget::image::Handle>,
+    /// UUID -> (Portrait,Name,StyleIDs)
+    portrait_and_names: BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
+    /// StyleID -> (UUID,StyleName,Icon)
+    style_id_uuid_table: BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

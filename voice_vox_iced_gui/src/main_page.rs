@@ -1,5 +1,3 @@
-use std::collections::{BTreeMap, HashMap};
-
 use iced::{
     widget::{
         pane_grid::{State, TitleBar},
@@ -7,7 +5,9 @@ use iced::{
     },
     Length, Renderer,
 };
+
 use iced_native::widget::pane_grid;
+use std::collections::BTreeMap;
 
 use crate::{history::History, toolbar::ToolBarConfig, Message, TabContext};
 pub(crate) fn build_ui<'a>(
@@ -16,16 +16,15 @@ pub(crate) fn build_ui<'a>(
     in_tab_state: &'a State<InTabPane>,
     active_tab: usize,
     tab_contexts: &'a [TabContext],
-    portraits: &HashMap<String, (iced::widget::image::Handle, String)>,
-    style_id_uuid_table: &BTreeMap<i32, String>,
-    icons: &BTreeMap<i32, iced::widget::image::Handle>,
+    portraits: &BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
+    style_id_uuid_table: &BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
     histories: &'a [History],
 ) -> Column<'a, Message, Renderer> {
     let mut page = Column::new();
     page = page.push(tool_bar.build_toolbar());
 
     let mut tab_bar =
-        iced_aw::TabBar::new_without_right_click(active_tab, |id| Message::TabSelect(id));
+        iced_aw::TabBar::new_without_right_click(active_tab,  Message::TabSelect);
     for tab_ctx in tab_contexts {
         tab_bar = tab_bar.push(iced_aw::TabLabel::Text(tab_ctx.file_name.clone()));
     }
@@ -34,20 +33,19 @@ pub(crate) fn build_ui<'a>(
             pane_grid::PaneGrid::new(
                 in_tab_state,
                 |_, intab_pane_kind, _| match intab_pane_kind {
-                    InTabPane::TextPane => {
+                    InTabPane::Text => {
                         let mut column = Column::new();
 
                         for key in tab_ctx.project.audioKeys.iter() {
                             let mut line = Row::new();
                             // icon
-                            let handle = tab_ctx
-                                .project
-                                .audioItems
-                                .get(key)
-                                .and_then(|audio_item| icons.get(&audio_item.styleId));
+                            let handle =
+                                tab_ctx.project.audioItems.get(key).and_then(|audio_item| {
+                                    style_id_uuid_table.get(&audio_item.styleId)
+                                });
                             if let Some(handle) = handle {
                                 line = line.push(iced::widget::button(
-                                    iced::widget::image(handle.clone())
+                                    iced::widget::image(handle.2.clone())
                                         .height(Length::Units(32))
                                         .width(Length::Units(32)),
                                 ));
@@ -73,8 +71,8 @@ pub(crate) fn build_ui<'a>(
                             column.width(Length::Fill).height(Length::Fill),
                         ))
                     }
-                    InTabPane::BottomPane => pane_grid::Content::new(Text::new("wip")),
-                    InTabPane::ParameterPane => pane_grid::Content::new({
+                    InTabPane::Bottom => pane_grid::Content::new(Text::new("wip")),
+                    InTabPane::Parameter => pane_grid::Content::new({
                         let mut column = Column::new();
                         let line = tab_ctx.editing_line;
                         let audio_item_key = &tab_ctx.project.audioKeys[line];
@@ -143,21 +141,28 @@ pub(crate) fn build_ui<'a>(
 
                         column
                     }),
-                    InTabPane::CharacterPane => {
+                    InTabPane::Character => {
                         let line = tab_ctx.editing_line;
                         let audio_item_key = &tab_ctx.project.audioKeys[line];
                         let audio_item = tab_ctx.project.audioItems.get(audio_item_key);
+                        let style = audio_item.and_then(|ai| style_id_uuid_table.get(&ai.styleId));
+
                         let handle = audio_item
                             .and_then(|ai| style_id_uuid_table.get(&ai.styleId))
-                            .and_then(|character_uuid| portraits.get(character_uuid));
-                        if let Some(handle) = handle {
+                            .and_then(|character_uuid| portraits.get(&character_uuid.0));
+
+                        if let Some((handle, style)) = handle.zip(style) {
                             pane_grid::Content::new(iced::widget::image(handle.0.clone()))
-                                .title_bar(TitleBar::new(Text::new(handle.1.clone())))
+                                .title_bar(TitleBar::new(Text::new(format!(
+                                    "{}{}",
+                                    handle.1,
+                                    if handle.2.len() == 1 { String::new() } else { format!("({})",style.1) }
+                                ))))
                         } else {
                             pane_grid::Content::new(Text::new("バグ"))
                         }
                     }
-                    InTabPane::HistroyPane => {
+                    InTabPane::History => {
                         let mut content = Column::new();
                         content = content.push("履歴");
                         if let Some(history) = histories.get(active_tab) {
@@ -180,9 +185,9 @@ pub(crate) fn build_ui<'a>(
 }
 
 pub enum InTabPane {
-    CharacterPane,
-    TextPane,
-    ParameterPane,
-    BottomPane,
-    HistroyPane,
+    Character,
+    Text,
+    Parameter,
+    Bottom,
+    History,
 }

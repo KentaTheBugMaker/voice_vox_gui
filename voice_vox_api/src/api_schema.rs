@@ -124,7 +124,7 @@ impl From<AccentPhrase> for AccentPhraseInProject {
         Self {
             moras: ap.moras.iter().map(|mora| mora.clone().into()).collect(),
             accent: ap.accent,
-            pauseMora: ap.pause_mora.map(|mora| mora.clone().into()),
+            pauseMora: ap.pause_mora.map(|mora| mora.into()),
             isInterrogative: ap.is_interrogative,
         }
     }
@@ -135,7 +135,7 @@ impl From<AccentPhraseInProject> for AccentPhrase {
         Self {
             moras: ap.moras.iter().map(|mora| mora.clone().into()).collect(),
             accent: ap.accent,
-            pause_mora: ap.pauseMora.map(|mora| mora.clone().into()),
+            pause_mora: ap.pauseMora.map(|mora| mora.into()),
             is_interrogative: ap.isInterrogative,
         }
     }
