@@ -1,189 +1,245 @@
-use std::collections::BTreeMap;
+//! Display a dropdown list of selectable values.
+use std::borrow::Cow;
 
 use iced::{
-    overlay::menu::StyleSheet as MenuSS, widget::button::StyleSheet as ButtonSS,
-    widget::container::StyleSheet as ContainerSS, Color, Length, Rectangle, Size,
+    event, keyboard, touch, widget::pick_list::StyleSheet, Event, Length, Padding, Point,
+    Rectangle, Size,
 };
 use iced_native::{
-    image,
-    layout::Node,
-    renderer::Quad,
-    text,
-    widget::{self, Tree},
-    Element, Overlay, Widget,
+    image, layout, mouse,
+    overlay::{self, menu},
+    renderer,
+    text::{self},
+    widget::{container, scrollable, tree, Tree},
+    Clipboard, Element, Layout, Shell, Widget, IME,
 };
 
-struct CharacterChangeButton<'a, Message> {
-    icon_table: &'a BTreeMap<String, iced_native::image::Handle>,
-    name: &'a str,
-    icon_size: (f32, f32),
-    message: Box<dyn FnOnce(String) -> Message>,
-}
-impl<'a, Renderer, Message> Widget<Message, Renderer> for CharacterChangeButton<'a, Message>
+use crate::character_change_dropdown_menu::Menu;
+
+/// A widget for selecting a single value from a list of options.
+#[allow(missing_debug_implementations)]
+pub struct PickList<'a,  Message, Renderer>
 where
-    Renderer: iced_native::text::Renderer
-        + iced_native::image::Renderer<Handle = iced_native::image::Handle>
-        + iced_native::Renderer,
-    Renderer::Theme: ButtonSS<Style = iced_native::renderer::Style>
-        + ContainerSS<Style = iced_native::renderer::Style>+MenuSS<Style=iced_native::renderer::Style>,
+
+    Renderer: text::Renderer,
+    Renderer::Theme: StyleSheet,
 {
-    fn state(&self) -> iced_native::widget::tree::State {
-        iced_native::widget::tree::State::new(CharacterChangeButtonState {
-            open: false,
-            sub_menu_hovered: None,
-            menu: State::new(),
-        })
+    on_selected: Box<dyn Fn(i32) -> Message + 'a>,
+    options: Cow<'a, [(String,Vec<(image::Handle,String,i32)>)]>,
+    icon: Option<iced_native::image::Handle>,
+    selected: Option<i32>,
+    width: Length,
+    padding: Padding,
+    text_size: Option<u16>,
+    font: Renderer::Font,
+    style: <Renderer::Theme as StyleSheet>::Style,
+    image_dimension: [u16; 2],
+}
+
+impl<'a,  Message, Renderer> PickList<'a,  Message, Renderer>
+where
+
+    Renderer: text::Renderer,
+    Renderer::Theme: StyleSheet + scrollable::StyleSheet + menu::StyleSheet + container::StyleSheet,
+    <Renderer::Theme as menu::StyleSheet>::Style: From<<Renderer::Theme as StyleSheet>::Style>,
+{
+    /// The default padding of a [`PickList`].
+    pub const DEFAULT_PADDING: Padding = Padding::new(5);
+
+    /// Creates a new [`PickList`] with the given list of options, the current
+    /// selected value, and the message to produce when an option is selected.
+    pub fn new(
+        options: impl Into<Cow<'a, [(String,Vec<(image::Handle,String,i32)>)]>>,
+        selected: Option<i32>,
+        on_selected: impl Fn(i32) -> Message + 'a,
+    ) -> Self {
+        Self {
+            on_selected: Box::new(on_selected),
+            options: options.into(),
+            icon: None,
+            selected,
+            width: Length::Shrink,
+            padding: Self::DEFAULT_PADDING,
+            text_size: None,
+            font: Default::default(),
+            style: Default::default(),
+            image_dimension: [16; 2],
+        }
+    }
+
+    /// Sets the placeholder of the [`PickList`].
+    pub fn icon(mut self, icon: iced_native::image::Handle) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+
+    /// Sets the width of the [`PickList`].
+    pub fn width(mut self, width: Length) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// Sets the [`Padding`] of the [`PickList`].
+    pub fn padding<P: Into<Padding>>(mut self, padding: P) -> Self {
+        self.padding = padding.into();
+        self
+    }
+
+    /// Sets the text size of the [`PickList`].
+    pub fn text_size(mut self, size: u16) -> Self {
+        self.text_size = Some(size);
+        self
+    }
+
+    /// Sets the font of the [`PickList`].
+    pub fn font(mut self, font: Renderer::Font) -> Self {
+        self.font = font;
+        self
+    }
+
+    /// Sets the style of the [`PickList`].
+    pub fn style(mut self, style: impl Into<<Renderer::Theme as StyleSheet>::Style>) -> Self {
+        self.style = style.into();
+        self
+    }
+}
+
+impl<'a,  Message, Renderer> Widget<Message, Renderer> for PickList<'a,  Message, Renderer>
+where
+
+    Message: 'a,
+    Renderer: text::Renderer + image::Renderer<Handle = iced_native::image::Handle> + 'a,
+    Renderer::Theme: StyleSheet + scrollable::StyleSheet + menu::StyleSheet + container::StyleSheet,
+    <Renderer::Theme as menu::StyleSheet>::Style: From<<Renderer::Theme as StyleSheet>::Style>,
+{
+    fn tag(&self) -> tree::Tag {
+        tree::Tag::of::<State<>>()
+    }
+
+    fn state(&self) -> tree::State {
+        tree::State::new(State::<>::new())
     }
 
     fn width(&self) -> Length {
-        Length::Fill
+        self.width
     }
 
     fn height(&self) -> Length {
-        Length::Fill
+        Length::Shrink
     }
 
-    fn layout(
-        &self,
+    fn layout(&self, _renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
+        layout(limits, self.width, self.padding, self.image_dimension)
+    }
+
+    fn on_event(
+        &mut self,
+        tree: &mut Tree,
+        event: Event,
+        layout: Layout<'_>,
+        cursor_position: Point,
         _renderer: &Renderer,
-        limits: &iced_native::layout::Limits,
-    ) -> iced_native::layout::Node {
-        Node::new(limits.resolve(Size {
-            width: self.icon_size.0 + 3.0,
-            height: self.icon_size.1 + 3.0,
-        }))
+        _clipboard: &mut dyn Clipboard,
+        _ime: &dyn IME,
+        shell: &mut Shell<'_, Message>,
+    ) -> event::Status {
+        update(
+            event,
+            layout,
+            cursor_position,
+            shell,
+            self.on_selected.as_ref(),
+            self.selected.as_ref(),
+            &self.options,
+            || tree.state.downcast_mut::<State<>>(),
+        )
+    }
+
+    fn mouse_interaction(
+        &self,
+        _tree: &Tree,
+        layout: Layout<'_>,
+        cursor_position: Point,
+        _viewport: &Rectangle,
+        _renderer: &Renderer,
+    ) -> mouse::Interaction {
+        mouse_interaction(layout, cursor_position)
     }
 
     fn draw(
         &self,
-        _state: &iced_native::widget::Tree,
+        _tree: &Tree,
         renderer: &mut Renderer,
         theme: &Renderer::Theme,
-        style: &iced_native::renderer::Style,
-        layout: iced_native::Layout<'_>,
-        _cursor_position: iced::Point,
-        _viewport: &iced::Rectangle,
+        _style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor_position: Point,
+        _viewport: &Rectangle,
     ) {
-        renderer.fill_quad(
-            Quad {
-                bounds: layout.bounds(),
-                border_radius: 3.0.into(),
-                border_width: 1.0,
-                border_color: theme.active(style).border_color,
-            },
-            Color::WHITE,
-        );
-        if let Some(icon) = self.icon_table.get(self.name) {
-            renderer.draw(
-                icon.clone(),
-                Rectangle::new(
-                    iced::Point {
-                        x: layout.position().x + 3.0,
-                        y: layout.position().y + 3.0,
-                    },
-                    Size {
-                        width: self.icon_size.0,
-                        height: self.icon_size.1,
-                    },
-                ),
-            );
-        }
+        draw(
+            renderer,
+            theme,
+            layout,
+            cursor_position,
+            self.icon.clone(),
+            &self.style,
+        )
     }
+
     fn overlay<'b>(
         &'b mut self,
-        state: &'b mut iced_native::widget::Tree,
-        layout: iced_native::Layout<'_>,
+        tree: &'b mut Tree,
+        layout: Layout<'_>,
         _renderer: &Renderer,
-    ) -> Option<iced_native::overlay::Element<'b, Message, Renderer>> {
-        let state = state.state.downcast_mut::<CharacterChangeButtonState>();
-        if state.open {
-            let overlay_position = layout.position();
-            Some(MenuOverlay::new(&mut state.menu,layout.bounds().height).overlay(overlay_position))
-        } else {
-            None
-        }
-    }
-    fn on_event(
-        &mut self,
-        state: &mut iced_native::widget::Tree,
-        event: iced::Event,
-        layout: iced_native::Layout<'_>,
-        cursor_position: iced::Point,
-        _renderer: &Renderer,
-        _clipboard: &mut dyn iced_native::Clipboard,
-        _ime: &dyn iced_native::IME,
-        _shell: &mut iced_native::Shell<'_, Message>,
-    ) -> iced::event::Status {
-        let state = state.state.downcast_mut::<CharacterChangeButtonState>();
-        match event {
-            iced::Event::Mouse(iced::mouse::Event::ButtonPressed(iced::mouse::Button::Left))
-            | iced::Event::Touch(iced::touch::Event::FingerPressed { .. }) => {
-                let bounds = layout.bounds();
-                state.open = bounds.contains(cursor_position);
-                iced::event::Status::Captured
-            }
-            _ => iced::event::Status::Ignored,
-        }
-    }
-}
-struct MenuOverlay<'a, Message, Renderer>
-where
-    Renderer: iced_native::Renderer
-        + iced_native::text::Renderer
-        + iced_native::image::Renderer<Handle = iced_native::image::Handle>,
-    Renderer::Theme: ContainerSS + ButtonSS+MenuSS,
-{
-    state: &'a mut Tree,
-    row_height: f32,
-    icon_width: f32,
-    container: iced_native::widget::Container<'a, Message, Renderer>,
-    style: <Renderer::Theme as MenuSS>::Style,
-}
+    ) -> Option<overlay::Element<'b, Message, Renderer>> {
+        let state = tree.state.downcast_mut::<State<>>();
 
-struct Menu<'a, Renderer>
-where
-    Renderer: text::Renderer,
-    Renderer::Theme: MenuSS,
-{
-    state: &'a mut State,
-    hovered: &'a mut Option<usize>,
-    last_selection: &'a mut Option<String>,
-    width: u16,
-    text_size: Option<u16>,
-    font: Renderer::Font,
-    style: <Renderer::Theme as MenuSS>::Style,
-}
-
-impl<'a, Message, Renderer> MenuOverlay<'a, Message, Renderer>
-where
-    Renderer: iced_native::Renderer
-        + iced_native::text::Renderer
-        + iced_native::image::Renderer<Handle = iced_native::image::Handle>,
-    Renderer::Theme:ButtonSS<Style = iced_native::renderer::Style>
-    + ContainerSS<Style = iced_native::renderer::Style>+MenuSS<Style=iced_native::renderer::Style>,
-{
-    fn new(menu:Menu<'a,Renderer>,target_height:f32) -> Self {
-        let Menu{ state, hovered, last_selection, width, text_size,  font, style }=menu;
-        // build overlay ui.
-        let container = widget::container(widget::scrollable(widget::column(vec![])));
-        Self {
-            state: &mut state.tree,
-            row_height: (),
-            icon_width: (),
-            container: (),
-            style: (),
-        }
+        overlay(
+            layout,
+            state,
+            self.padding,
+            self.text_size,
+            self.font.clone(),
+            &self.options,
+            self.style.clone(),
+        )
     }
 }
 
-struct State {
-    tree: Tree,
+impl<'a, Message, Renderer> From<PickList<'a, Message, Renderer>>
+    for Element<'a, Message, Renderer>
+where
+    Message: 'a,
+    Renderer: text::Renderer + image::Renderer<Handle = image::Handle> + 'a,
+    Renderer::Theme: StyleSheet + scrollable::StyleSheet + menu::StyleSheet + container::StyleSheet,
+    <Renderer::Theme as menu::StyleSheet>::Style: From<<Renderer::Theme as StyleSheet>::Style>,
+{
+    fn from(pick_list: PickList<'a,  Message, Renderer>) -> Self {
+        Self::new(pick_list)
+    }
 }
+
+/// The local state of a [`PickList`].
+#[derive(Debug)]
+pub struct State {
+    menu: crate::character_change_dropdown_menu::State,
+    keyboard_modifiers: keyboard::Modifiers,
+    is_open: bool,
+    hovered_option: Option<usize>,
+    last_selection: Option<i32>,
+    style_menu:Option<String>
+}
+
 impl State {
-    /// Creates a new [`State`] for a [`Menu`].
+    /// Creates a new [`State`] for a [`PickList`].
     pub fn new() -> Self {
         Self {
-            tree: Tree::empty(),
+            menu: crate::character_change_dropdown_menu::State::default(),
+            keyboard_modifiers: keyboard::Modifiers::default(),
+            is_open: bool::default(),
+            hovered_option: Option::default(),
+            last_selection: Option::default(),
+            style_menu: Option::default(),
         }
     }
 }
@@ -193,64 +249,211 @@ impl Default for State {
         Self::new()
     }
 }
-impl<'a, Message, Renderer> Overlay<Message, Renderer> for MenuOverlay<'a, Message, Renderer>
-where
-    Renderer: iced_native::Renderer
-        + iced_native::text::Renderer
-        + iced_native::image::Renderer<Handle = iced_native::image::Handle>,
-    Renderer::Theme: ContainerSS+ButtonSS+MenuSS
+
+/// Computes the layout of a [`PickList`].
+pub fn layout(
+    limits: &layout::Limits,
+    width: Length,
+    padding: Padding,
+    image_dimension: [u16; 2],
+) -> layout::Node {
+    use std::f32;
+
+    let limits = limits.width(width).height(Length::Shrink).pad(padding);
+
+    let size = {
+        let intrinsic = Size::new(image_dimension[0] as f32, image_dimension[1] as f32);
+
+        limits.resolve(intrinsic).pad(padding)
+    };
+
+    layout::Node::new(size)
+}
+
+/// Processes an [`Event`] and updates the [`State`] of a [`PickList`]
+/// accordingly.
+pub fn update<'a, Message>(
+    event: Event,
+    layout: Layout<'_>,
+    cursor_position: Point,
+    shell: &mut Shell<'_, Message>,
+    on_selected: &dyn Fn(i32) -> Message,
+    selected: Option<&i32>,
+    options: &[(String,Vec<(image::Handle,String,i32)>)],
+    state: impl FnOnce() -> &'a mut State,
+) -> event::Status
 {
-    fn layout(
-        &self,
-        renderer: &Renderer,
-        bounds: Size,
-        position: iced::Point,
-    ) -> iced_native::layout::Node {
-        // resolve height,
-        let text_size = self.row_height;
+    match event {
+        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
+        | Event::Touch(touch::Event::FingerPressed { .. }) => {
+            let state = state();
 
-        todo!()
-    }
+            let event_status = if state.is_open {
+                // Event wasn' processed by overlay, so cursor was clicked either outside it's
+                // bounds or on the drop-down, either way we close the overlay.
+                state.is_open = false;
 
-    fn draw(
-        &self,
-        renderer: &mut Renderer,
-        theme: &Renderer::Theme,
-        style: &iced_native::renderer::Style,
-        layout: iced_native::Layout<'_>,
-        cursor_position: iced::Point,
-    ) {
-        todo!()
+                event::Status::Captured
+            } else if layout.bounds().contains(cursor_position) {
+                state.is_open = true;
+                state.hovered_option = options.iter().position(|option| Some(option.1[0].2) == selected.copied());
+
+                event::Status::Captured
+            } else {
+                event::Status::Ignored
+            };
+
+            if let Some(last_selection) = state.last_selection.take() {
+                shell.publish((on_selected)(last_selection));
+
+                state.is_open = false;
+
+                event::Status::Captured
+            } else {
+                event_status
+            }
+        }
+        Event::Mouse(mouse::Event::WheelScrolled {
+            delta: mouse::ScrollDelta::Lines { y, .. },
+        }) => {
+            let state = state();
+
+            if state.keyboard_modifiers.command()
+                && layout.bounds().contains(cursor_position)
+                && !state.is_open
+            {
+                fn find_next<'a>(
+                    selected: &'a i32,
+                    mut options: impl Iterator<Item = &'a i32>,
+                ) -> Option<&'a i32> {
+                    let _ = options.find(|&option| option == selected);
+
+                    options.next()
+                }
+
+                let next_option = if y < 0.0 {
+                    if let Some(selected) = selected {
+                        find_next(selected, options.iter().map(|x|{&x.1[0].2}))
+                    } else {
+                        options.first().map(|x|{&x.1[0].2})
+                    }
+                } else if y > 0.0 {
+                    if let Some(selected) = selected {
+                        find_next(selected, options.iter().map(|x|{&x.1[0].2}).rev())
+                    } else {
+                        options.last().map(|x|{&x.1[0].2})
+                    }
+                } else {
+                    None
+                };
+
+                if let Some(next_option) = next_option {
+                    shell.publish((on_selected)(next_option.clone()));
+                }
+
+                event::Status::Captured
+            } else {
+                event::Status::Ignored
+            }
+        }
+        Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+            let state = state();
+
+            state.keyboard_modifiers = modifiers;
+
+            event::Status::Ignored
+        }
+        _ => event::Status::Ignored,
     }
 }
-impl<'a, Message, Renderer> MenuOverlay<'a, Message, Renderer>
+
+/// Returns the current [`mouse::Interaction`] of a [`PickList`].
+pub fn mouse_interaction(layout: Layout<'_>, cursor_position: Point) -> mouse::Interaction {
+    let bounds = layout.bounds();
+    let is_mouse_over = bounds.contains(cursor_position);
+
+    if is_mouse_over {
+        mouse::Interaction::Pointer
+    } else {
+        mouse::Interaction::default()
+    }
+}
+
+/// Returns the current overlay of a [`PickList`].
+pub fn overlay<'a, Message, Renderer>(
+    layout: Layout<'_>,
+    state: &'a mut State,
+    padding: Padding,
+    text_size: Option<u16>,
+    font: Renderer::Font,
+    options: &'a [(String,Vec<(image::Handle,String,i32)>)],
+    style: <Renderer::Theme as StyleSheet>::Style,
+) -> Option<overlay::Element<'a, Message, Renderer>>
 where
     Message: 'a,
-    Renderer: iced_native::renderer::Renderer
-        + iced_native::text::Renderer
-        + iced_native::image::Renderer<Handle = iced_native::image::Handle>
-        + 'a,
-    Renderer::Theme:ContainerSS+ButtonSS+MenuSS
+    Renderer: text::Renderer+image::Renderer<Handle = image::Handle> + 'a,
+    Renderer::Theme: StyleSheet + scrollable::StyleSheet + menu::StyleSheet + container::StyleSheet,
+    <Renderer::Theme as menu::StyleSheet>::Style: From<<Renderer::Theme as StyleSheet>::Style>,
 {
-    fn overlay(self, point: iced::Point) -> iced_native::overlay::Element<'a, Message, Renderer> {
-        iced_native::overlay::Element::new(point, Box::new(self))
+    if state.is_open {
+        let bounds = layout.bounds();
+
+        let mut menu = Menu::new(
+            &mut state.menu,
+            options,
+            &mut state.hovered_option,
+            &mut state.last_selection,
+            &mut state.style_menu
+        )
+        .width(bounds.width.round() as u16)
+        .padding(padding)
+        .font(font)
+        .style(style);
+
+        if let Some(text_size) = text_size {
+            menu = menu.text_size(text_size);
+        }
+
+        Some(menu.overlay(layout.position(), bounds.height))
+    } else {
+        None
     }
 }
 
-impl<'a, Message, Renderer> From<CharacterChangeButton<'a, Message>>
-    for Element<'a, Message, Renderer>
-where
-    Message: 'a,
-    Renderer: text::Renderer + 'a + image::Renderer<Handle = iced_native::image::Handle>,
-    Renderer::Theme:ButtonSS<Style = iced_native::renderer::Style>
-    + ContainerSS<Style = iced_native::renderer::Style>+MenuSS<Style=iced_native::renderer::Style>,
+/// Draws a [`PickList`].
+pub fn draw<Renderer>(
+    renderer: &mut Renderer,
+    theme: &Renderer::Theme,
+    layout: Layout<'_>,
+    cursor_position: Point,
+
+    placeholder: Option<iced_native::image::Handle>,
+
+    style: &<Renderer::Theme as StyleSheet>::Style,
+) where
+    Renderer: text::Renderer + image::Renderer<Handle = iced_native::image::Handle>,
+    Renderer::Theme: StyleSheet,
 {
-    fn from(pick_list: CharacterChangeButton<'a, Message>) -> Self {
-        Self::new(pick_list)
+    let bounds = layout.bounds();
+    let is_mouse_over = bounds.contains(cursor_position);
+
+    let style = if is_mouse_over {
+        theme.hovered(style)
+    } else {
+        theme.active(style)
+    };
+
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds,
+            border_color: style.border_color,
+            border_width: style.border_width,
+            border_radius: style.border_radius.into(),
+        },
+        style.background,
+    );
+
+    if let Some(handle) = placeholder {
+        renderer.draw(handle, layout.bounds());
     }
-}
-struct CharacterChangeButtonState {
-    open: bool,
-    sub_menu_hovered: Option<String>,
-    menu:State,
 }

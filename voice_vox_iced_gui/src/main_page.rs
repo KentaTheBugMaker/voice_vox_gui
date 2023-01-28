@@ -23,8 +23,7 @@ pub(crate) fn build_ui<'a>(
     let mut page = Column::new();
     page = page.push(tool_bar.build_toolbar());
 
-    let mut tab_bar =
-        iced_aw::TabBar::new_without_right_click(active_tab,  Message::TabSelect);
+    let mut tab_bar = iced_aw::TabBar::new_without_right_click(active_tab, Message::TabSelect);
     for tab_ctx in tab_contexts {
         tab_bar = tab_bar.push(iced_aw::TabLabel::Text(tab_ctx.file_name.clone()));
     }
@@ -156,7 +155,11 @@ pub(crate) fn build_ui<'a>(
                                 .title_bar(TitleBar::new(Text::new(format!(
                                     "{}{}",
                                     handle.1,
-                                    if handle.2.len() == 1 { String::new() } else { format!("({})",style.1) }
+                                    if handle.2.len() == 1 {
+                                        String::new()
+                                    } else {
+                                        format!("({})", style.1)
+                                    }
                                 ))))
                         } else {
                             pane_grid::Content::new(Text::new("バグ"))

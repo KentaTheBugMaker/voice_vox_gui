@@ -1,4 +1,5 @@
-//mod character_change_button;
+mod character_change_button;
+mod character_change_dropdown_menu;
 mod history;
 mod main_page;
 mod project;
