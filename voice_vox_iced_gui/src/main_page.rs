@@ -19,6 +19,7 @@ pub(crate) fn build_ui<'a>(
     portraits: &BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
     style_id_uuid_table: &BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
     histories: &'a [History],
+    menu: &'a [(String, Vec<(iced::widget::image::Handle, String, i32)>)],
 ) -> Column<'a, Message, Renderer> {
     let mut page = Column::new();
     page = page.push(tool_bar.build_toolbar());
@@ -38,20 +39,14 @@ pub(crate) fn build_ui<'a>(
                         for key in tab_ctx.project.audioKeys.iter() {
                             let mut line = Row::new();
                             // icon
-                            let handle =
-                                tab_ctx.project.audioItems.get(key).and_then(|audio_item| {
-                                    style_id_uuid_table.get(&audio_item.styleId)
-                                });
-                            if let Some(handle) = handle {
-                                line = line.push(iced::widget::button(
-                                    iced::widget::image(handle.2.clone())
-                                        .height(Length::Units(32))
-                                        .width(Length::Units(32)),
-                                ));
-                            } else {
-                                eprintln!(
-                                    "Failed to find icon handle for line {}",
-                                    tab_ctx.project.audioItems[key].styleId
+
+                            if let Some(audio_item) = tab_ctx.project.audioItems.get(key) {
+                                line = line.push(
+                                    crate::character_change_button::CharacterChangeButton::new(
+                                        menu,
+                                        Some(audio_item.styleId),
+                                        |style_id| Message::CharacterChange(key.clone(), style_id),
+                                    ),
                                 );
                             }
                             // text
@@ -170,7 +165,9 @@ pub(crate) fn build_ui<'a>(
                         content = content.push("履歴");
                         if let Some(history) = histories.get(active_tab) {
                             content = content.push(iced::widget::scrollable(
-                                history.build_view().width(Length::Fill),
+                                history
+                                    .build_view(portraits, style_id_uuid_table)
+                                    .width(Length::Fill),
                             ));
                         }
                         pane_grid::Content::new(content)

@@ -25,6 +25,7 @@ where
     hovered_option: &'a mut Option<usize>,
     last_selection: &'a mut Option<i32>,
     style_menu: &'a mut Option<String>,
+    style_menu_hovered_option: &'a mut Option<usize>,
     width: u16,
     padding: Padding,
     text_size: Option<u16>,
@@ -46,6 +47,8 @@ where
         hovered_option: &'a mut Option<usize>,
         last_selection: &'a mut Option<i32>,
         style_menu: &'a mut Option<String>,
+        style_menu_hovered_option: &'a mut Option<usize>,
+        icon_size: Size,
     ) -> Self {
         Menu {
             state,
@@ -58,7 +61,8 @@ where
             font: Default::default(),
             style: Default::default(),
             style_menu,
-            icon_size: Size::UNIT,
+            icon_size,
+            style_menu_hovered_option,
         }
     }
 
@@ -130,14 +134,14 @@ impl Default for State {
 
 struct Overlay<'a, Message, Renderer>
 where
-    Renderer: iced_native::Renderer,
+    Renderer: iced_native::Renderer + iced_native::text::Renderer,
     Renderer::Theme: StyleSheet + container::StyleSheet,
 {
     state: &'a mut Tree,
+
     container: Container<'a, Message, Renderer>,
     width: u16,
     target_height: f32,
-    style: <Renderer::Theme as StyleSheet>::Style,
 }
 
 impl<'a, Message, Renderer> Overlay<'a, Message, Renderer>
@@ -160,18 +164,20 @@ where
             style,
             style_menu,
             icon_size,
+            style_menu_hovered_option,
         } = menu;
 
         let container = Container::new(Scrollable::new(List {
             options,
             hovered_option,
             last_selection,
-            font,
+            font: font.clone(),
             text_size,
             padding,
             style: style.clone(),
             style_menu,
             icon_size,
+            style_menu_hovered_option,
         }));
 
         state.tree.diff(&container as &dyn Widget<_, _>);
@@ -181,7 +187,6 @@ where
             container,
             width,
             target_height,
-            style,
         }
     }
 }
@@ -261,21 +266,7 @@ where
         layout: Layout<'_>,
         cursor_position: Point,
     ) {
-        let appearance = theme.appearance(&self.style);
         let bounds = layout.bounds();
-
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    width: bounds.width - 1.0,
-                    ..bounds
-                },
-                border_color: appearance.border_color,
-                border_width: appearance.border_width,
-                border_radius: appearance.border_radius.into(),
-            },
-            appearance.background,
-        );
 
         self.container.draw(
             self.state,
@@ -298,6 +289,7 @@ where
     hovered_option: &'a mut Option<usize>,
     last_selection: &'a mut Option<i32>,
     style_menu: &'a mut Option<String>,
+    style_menu_hovered_option: &'a mut Option<usize>,
     padding: Padding,
     text_size: Option<u16>,
     font: Renderer::Font,
@@ -351,35 +343,59 @@ where
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 let bounds = layout.bounds();
 
-                let Rectangle {
-                    x,
-                    y,
-                    width,
-                    height,
-                } = bounds;
-                let notch_bounds = Rectangle {
-                    x: x + width - self.text_size.unwrap_or_else(|| renderer.default_size()) as f32,
-                    y,
-                    width: self.text_size.unwrap_or_else(|| renderer.default_size()) as f32,
-                    height,
-                };
-                let shrinked_bounds = Rectangle {
-                    x,
-                    y,
-                    width: width - self.text_size.unwrap_or_else(|| renderer.default_size()) as f32,
-                    height,
+                let max_text_width = self
+                    .options
+                    .iter()
+                    .map(|(name, _)| {
+                        renderer.measure_width(
+                            name,
+                            self.text_size.unwrap_or(renderer.default_size()),
+                            self.font.clone(),
+                        )
+                    })
+                    .reduce(f32::max)
+                    .unwrap();
+                let bounds = Rectangle {
+                    width: max_text_width,
+                    ..bounds
                 };
 
-                //
                 if bounds.contains(cursor_position) {
                     if let Some(index) = *self.hovered_option {
                         if let Some(option) = self.options.get(index) {
-                            if option.1.len() == 1 || shrinked_bounds.contains(cursor_position) {
+                            if bounds.contains(cursor_position) {
                                 *self.last_selection = Some(option.1[0].2);
-                                *self.style_menu=None;
-                            } else if notch_bounds.contains(cursor_position) {
+                                *self.style_menu = None;
+                            }
+                        }
+                    }
+                }
+            }
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
+                let bounds = layout.bounds();
+
+                let max_text_width = self
+                    .options
+                    .iter()
+                    .map(|(name, _)| {
+                        renderer.measure_width(
+                            name,
+                            self.text_size.unwrap_or(renderer.default_size()),
+                            self.font.clone(),
+                        )
+                    })
+                    .reduce(f32::max)
+                    .unwrap();
+                let bounds = Rectangle {
+                    width: max_text_width,
+                    ..bounds
+                };
+
+                if bounds.contains(cursor_position) {
+                    if let Some(index) = *self.hovered_option {
+                        if let Some(option) = self.options.get(index) {
+                            if bounds.contains(cursor_position) {
                                 *self.style_menu = Some(option.0.clone());
-                                *self.last_selection=None;
                             }
                         }
                     }
@@ -387,7 +403,22 @@ where
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
                 let bounds = layout.bounds();
-
+                let max_text_width = self
+                    .options
+                    .iter()
+                    .map(|(name, _)| {
+                        renderer.measure_width(
+                            name,
+                            self.text_size.unwrap_or(renderer.default_size()),
+                            self.font.clone(),
+                        )
+                    })
+                    .reduce(f32::max)
+                    .unwrap();
+                let bounds = Rectangle {
+                    width: max_text_width,
+                    ..bounds
+                };
                 if bounds.contains(cursor_position) {
                     let text_size = self.text_size.unwrap_or_else(|| renderer.default_size());
 
@@ -396,6 +427,15 @@ where
                             / f32::from(text_size + self.padding.vertical()))
                             as usize,
                     );
+                }
+                if let Some(character) = self.style_menu {
+                    // build region.
+                    if let Some((from_top, (name, (style_menu)))) = self
+                        .options
+                        .iter()
+                        .enumerate()
+                        .find(|name| &name.1 .0 == character)
+                    {}
                 }
             }
             Event::Touch(touch::Event::FingerPressed { .. }) => {
@@ -431,10 +471,10 @@ where
                         if let Some(option) = self.options.get(index) {
                             if option.1.len() == 1 || shrinked_bounds.contains(cursor_position) {
                                 *self.last_selection = Some(option.1[0].2);
-                                *self.style_menu=None;
+                                *self.style_menu = None;
                             } else if notch_bounds.contains(cursor_position) {
                                 *self.style_menu = Some(option.0.clone());
-                                *self.last_selection=None;
+                                *self.last_selection = None;
                             }
                         }
                     }
@@ -484,7 +524,23 @@ where
         let end = ((offset + viewport.height) / option_height as f32).ceil() as usize;
 
         let visible_options = &self.options[start..end.min(self.options.len())];
-
+        let max_text_width = visible_options
+            .iter()
+            .map(|(name, _)| renderer.measure_width(name, text_size, self.font.clone()))
+            .reduce(f32::max)
+            .unwrap();
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    width: max_text_width + self.icon_size.width + text_size as f32 - 1.0,
+                    ..bounds
+                },
+                border_color: appearance.border_color,
+                border_width: appearance.border_width,
+                border_radius: appearance.border_radius.into(),
+            },
+            appearance.background,
+        );
         for (i, option) in visible_options.iter().enumerate() {
             let i = start + i;
             let is_selected = *self.hovered_option == Some(i);
@@ -493,9 +549,9 @@ where
                 x: bounds.x,
                 y: bounds.y + (option_height * i) as f32,
                 width: if option.1.len() == 1 {
-                    bounds.width
+                    max_text_width + self.icon_size.width
                 } else {
-                    bounds.width - text_size as f32
+                    max_text_width + self.icon_size.width
                 },
                 height: f32::from(text_size + self.padding.vertical()),
             };
@@ -516,7 +572,7 @@ where
                 option.1[0].0.clone(),
                 Rectangle::new(
                     Point {
-                        x: bounds.x + self.padding.left as f32,
+                        x: bounds.x as f32,
                         y: bounds.y,
                     },
                     self.icon_size,
@@ -541,11 +597,15 @@ where
                 horizontal_alignment: alignment::Horizontal::Left,
                 vertical_alignment: alignment::Vertical::Center,
             });
-            if !option.1.len() == 1 {
+
+            if option.1.len() != 1 {
                 renderer.fill_text(Text {
                     content: ">",
                     bounds: Rectangle {
-                        x: bounds.x + bounds.width - text_size as f32,
+                        x: bounds.x
+                            + self.icon_size.width
+                            + self.padding.left as f32
+                            + max_text_width,
                         y: bounds.center_y(),
                         width: f32::INFINITY,
                         ..bounds
@@ -579,8 +639,8 @@ where
                 renderer.fill_quad(
                     renderer::Quad {
                         bounds: Rectangle {
-                            x: bounds.x + bounds.width,
-                            y: bounds.y + (option_height * i) as f32,
+                            x: bounds.x + self.icon_size.width + max_text_width + text_size as f32,
+                            y: bounds.y,
                             height: (option_height * option.1.len()) as f32,
                             width: self.icon_size.width + max_width,
                         },
@@ -590,7 +650,65 @@ where
                     },
                     appearance.background,
                 );
-                //
+                //render menu for each style.
+                for (j, style) in option.1.iter().enumerate() {
+                    let is_selected = *self.style_menu_hovered_option == Some(j);
+                    if is_selected {
+                        renderer.fill_quad(
+                            renderer::Quad {
+                                bounds: Rectangle {
+                                    x: bounds.x
+                                        + self.icon_size.width
+                                        + max_text_width
+                                        + text_size as f32,
+                                    y: bounds.y + (option_height * j) as f32,
+                                    width: f32::INFINITY,
+                                    height: f32::from(text_size + self.padding.vertical()),
+                                },
+                                border_color: Color::TRANSPARENT,
+                                border_width: 0.0,
+                                border_radius: appearance.border_radius.into(),
+                            },
+                            appearance.selected_background,
+                        );
+                    }
+                    // render icon
+                    renderer.draw(
+                        style.0.clone(),
+                        Rectangle::new(
+                            Point {
+                                x: bounds.x
+                                    + self.icon_size.width
+                                    + max_text_width
+                                    + text_size as f32,
+                                y: bounds.y + (option_height * j) as f32,
+                            },
+                            self.icon_size,
+                        ),
+                    );
+                    // render name.
+                    renderer.fill_text(Text {
+                        content: &format!("{}({})", &option.0, style.1),
+                        bounds: Rectangle {
+                            x: bounds.x
+                                + 2.0 * self.icon_size.width
+                                + max_text_width
+                                + (self.padding.left + text_size) as f32,
+                            y: bounds.center_y() + (option_height * j) as f32,
+                            width: f32::INFINITY,
+                            ..bounds
+                        },
+                        size: f32::from(text_size),
+                        font: self.font.clone(),
+                        color: if is_selected {
+                            appearance.selected_text_color
+                        } else {
+                            appearance.text_color
+                        },
+                        horizontal_alignment: alignment::Horizontal::Left,
+                        vertical_alignment: alignment::Vertical::Center,
+                    });
+                }
             }
         }
     }

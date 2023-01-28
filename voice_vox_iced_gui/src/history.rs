@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use iced::{
     widget::{Column, Text},
     Renderer,
@@ -10,6 +12,11 @@ pub enum Diff {
         audio_item_key: String,
         before: String,
         after: String,
+    },
+    CharacterChange {
+        audio_item_key: String,
+        before: i32,
+        after: i32,
     },
     Pitch {
         audio_item_key: String,
@@ -139,6 +146,15 @@ impl History {
                         }
                     }
                 }
+                Diff::CharacterChange {
+                    audio_item_key,
+                    before,
+                    after: _,
+                } => {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
+                        ai.styleId = before;
+                    }
+                }
             }
 
             self.depth += 1;
@@ -222,6 +238,15 @@ impl History {
                         if let Some(query) = &mut ai.query {
                             query.postPhonemeLength = after;
                         }
+                    }
+                }
+                Diff::CharacterChange {
+                    audio_item_key,
+                    before: _,
+                    after,
+                } => {
+                    if let Some(ai) = tab_context.project.audioItems.get_mut(&audio_item_key) {
+                        ai.styleId = after;
                     }
                 }
             }
@@ -314,6 +339,19 @@ impl History {
                         query.postPhonemeLength = *after;
                     }
                 }
+            }
+            Diff::CharacterChange {
+                audio_item_key,
+                before,
+                after,
+            } => {
+                if let Some(ai) = tab_context.project.audioItems.get_mut(audio_item_key) {
+                    *before = ai.styleId;
+                    ai.styleId = *after;
+                }
+                self.depth = 0;
+                self.undo_stack.push(diff);
+                return;
             }
         }
         self.depth = 0;
@@ -485,7 +523,11 @@ impl History {
             println!("Unsquahed buffer is empty.");
         }
     }
-    pub(crate) fn build_view(&self) -> Column<crate::Message, Renderer> {
+    pub(crate) fn build_view(
+        &self,
+        portrait_and_names: &BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
+        style_id_uuid_table: &BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
+    ) -> Column<crate::Message, Renderer> {
         let build_text = |diff: &Diff, depth: usize, id: usize| {
             if id == 0 {
                 Text::new(format!("{} 最新", if id == depth { "*" } else { "" }))
@@ -561,6 +603,28 @@ impl History {
                         before,
                         after
                     ),
+                    Diff::CharacterChange {
+                        audio_item_key: _,
+                        before,
+                        after,
+                    } => {
+                        let (
+                            (uuid_before, style_name_before, _),
+                            (uuid_after, style_name_after, _),
+                        ) = (&style_id_uuid_table[before], &style_id_uuid_table[after]);
+                        let (name_before, name_after) = (
+                            &portrait_and_names[uuid_before].1,
+                            &portrait_and_names[uuid_after].1,
+                        );
+                        format!(
+                            "{} キャラクター変更 {}({})-> {}({})",
+                            if depth == id { "*" } else { "" },
+                            name_before,
+                            style_name_before,
+                            name_after,
+                            style_name_after
+                        )
+                    }
                 })
             }
         };

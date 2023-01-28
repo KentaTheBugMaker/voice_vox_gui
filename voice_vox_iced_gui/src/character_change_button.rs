@@ -18,14 +18,13 @@ use crate::character_change_dropdown_menu::Menu;
 
 /// A widget for selecting a single value from a list of options.
 #[allow(missing_debug_implementations)]
-pub struct PickList<'a,  Message, Renderer>
+pub struct CharacterChangeButton<'a, Message, Renderer>
 where
-
     Renderer: text::Renderer,
     Renderer::Theme: StyleSheet,
 {
     on_selected: Box<dyn Fn(i32) -> Message + 'a>,
-    options: Cow<'a, [(String,Vec<(image::Handle,String,i32)>)]>,
+    options: Cow<'a, [(String, Vec<(image::Handle, String, i32)>)]>,
     icon: Option<iced_native::image::Handle>,
     selected: Option<i32>,
     width: Length,
@@ -33,12 +32,10 @@ where
     text_size: Option<u16>,
     font: Renderer::Font,
     style: <Renderer::Theme as StyleSheet>::Style,
-    image_dimension: [u16; 2],
 }
 
-impl<'a,  Message, Renderer> PickList<'a,  Message, Renderer>
+impl<'a, Message, Renderer> CharacterChangeButton<'a, Message, Renderer>
 where
-
     Renderer: text::Renderer,
     Renderer::Theme: StyleSheet + scrollable::StyleSheet + menu::StyleSheet + container::StyleSheet,
     <Renderer::Theme as menu::StyleSheet>::Style: From<<Renderer::Theme as StyleSheet>::Style>,
@@ -49,7 +46,7 @@ where
     /// Creates a new [`PickList`] with the given list of options, the current
     /// selected value, and the message to produce when an option is selected.
     pub fn new(
-        options: impl Into<Cow<'a, [(String,Vec<(image::Handle,String,i32)>)]>>,
+        options: impl Into<Cow<'a, [(String, Vec<(image::Handle, String, i32)>)]>>,
         selected: Option<i32>,
         on_selected: impl Fn(i32) -> Message + 'a,
     ) -> Self {
@@ -63,7 +60,6 @@ where
             text_size: None,
             font: Default::default(),
             style: Default::default(),
-            image_dimension: [16; 2],
         }
     }
 
@@ -104,20 +100,20 @@ where
     }
 }
 
-impl<'a,  Message, Renderer> Widget<Message, Renderer> for PickList<'a,  Message, Renderer>
+impl<'a, Message, Renderer> Widget<Message, Renderer>
+    for CharacterChangeButton<'a, Message, Renderer>
 where
-
     Message: 'a,
     Renderer: text::Renderer + image::Renderer<Handle = iced_native::image::Handle> + 'a,
     Renderer::Theme: StyleSheet + scrollable::StyleSheet + menu::StyleSheet + container::StyleSheet,
     <Renderer::Theme as menu::StyleSheet>::Style: From<<Renderer::Theme as StyleSheet>::Style>,
 {
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State<>>()
+        tree::Tag::of::<State>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State::<>::new())
+        tree::State::new(State::new())
     }
 
     fn width(&self) -> Length {
@@ -128,8 +124,14 @@ where
         Length::Shrink
     }
 
-    fn layout(&self, _renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
-        layout(limits, self.width, self.padding, self.image_dimension)
+    fn layout(&self, renderer: &Renderer, limits: &layout::Limits) -> layout::Node {
+        let default_size = self.text_size.unwrap_or_else(|| renderer.default_size());
+        layout(
+            limits,
+            self.width,
+            self.padding,
+            Size::new(default_size as f32, default_size as f32),
+        )
     }
 
     fn on_event(
@@ -151,7 +153,7 @@ where
             self.on_selected.as_ref(),
             self.selected.as_ref(),
             &self.options,
-            || tree.state.downcast_mut::<State<>>(),
+            || tree.state.downcast_mut::<State>(),
         )
     }
 
@@ -176,12 +178,28 @@ where
         cursor_position: Point,
         _viewport: &Rectangle,
     ) {
+        let placeholder = self.icon.clone().or_else(|| {
+            self.options
+                .iter()
+                .find(|(_, styles)| {
+                    styles
+                        .iter()
+                        .any(|(_, _, style_id)| self.selected == Some(*style_id))
+                })
+                .map(|(_, styles)| styles)
+                .and_then(|styles| {
+                    styles
+                        .iter()
+                        .find(|(_, _, style_id)| self.selected == Some(*style_id))
+                        .map(|(icon, _, _)| icon.clone())
+                })
+        });
         draw(
             renderer,
             theme,
             layout,
             cursor_position,
-            self.icon.clone(),
+            placeholder,
             &self.style,
         )
     }
@@ -190,9 +208,10 @@ where
         &'b mut self,
         tree: &'b mut Tree,
         layout: Layout<'_>,
-        _renderer: &Renderer,
+        renderer: &Renderer,
     ) -> Option<overlay::Element<'b, Message, Renderer>> {
-        let state = tree.state.downcast_mut::<State<>>();
+        let state = tree.state.downcast_mut::<State>();
+        let default_size = self.text_size.unwrap_or_else(|| renderer.default_size());
 
         overlay(
             layout,
@@ -202,11 +221,12 @@ where
             self.font.clone(),
             &self.options,
             self.style.clone(),
+            Size::new(default_size as f32, default_size as f32),
         )
     }
 }
 
-impl<'a, Message, Renderer> From<PickList<'a, Message, Renderer>>
+impl<'a, Message, Renderer> From<CharacterChangeButton<'a, Message, Renderer>>
     for Element<'a, Message, Renderer>
 where
     Message: 'a,
@@ -214,7 +234,7 @@ where
     Renderer::Theme: StyleSheet + scrollable::StyleSheet + menu::StyleSheet + container::StyleSheet,
     <Renderer::Theme as menu::StyleSheet>::Style: From<<Renderer::Theme as StyleSheet>::Style>,
 {
-    fn from(pick_list: PickList<'a,  Message, Renderer>) -> Self {
+    fn from(pick_list: CharacterChangeButton<'a, Message, Renderer>) -> Self {
         Self::new(pick_list)
     }
 }
@@ -227,7 +247,8 @@ pub struct State {
     is_open: bool,
     hovered_option: Option<usize>,
     last_selection: Option<i32>,
-    style_menu:Option<String>
+    style_menu: Option<String>,
+    style_menu_hovered_option: Option<usize>,
 }
 
 impl State {
@@ -240,6 +261,7 @@ impl State {
             hovered_option: Option::default(),
             last_selection: Option::default(),
             style_menu: Option::default(),
+            style_menu_hovered_option: Option::default(),
         }
     }
 }
@@ -255,14 +277,12 @@ pub fn layout(
     limits: &layout::Limits,
     width: Length,
     padding: Padding,
-    image_dimension: [u16; 2],
+    image_dimension: Size,
 ) -> layout::Node {
-    use std::f32;
-
     let limits = limits.width(width).height(Length::Shrink).pad(padding);
 
     let size = {
-        let intrinsic = Size::new(image_dimension[0] as f32, image_dimension[1] as f32);
+        let intrinsic = image_dimension;
 
         limits.resolve(intrinsic).pad(padding)
     };
@@ -279,10 +299,9 @@ pub fn update<'a, Message>(
     shell: &mut Shell<'_, Message>,
     on_selected: &dyn Fn(i32) -> Message,
     selected: Option<&i32>,
-    options: &[(String,Vec<(image::Handle,String,i32)>)],
+    options: &[(String, Vec<(image::Handle, String, i32)>)],
     state: impl FnOnce() -> &'a mut State,
-) -> event::Status
-{
+) -> event::Status {
     match event {
         Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left))
         | Event::Touch(touch::Event::FingerPressed { .. }) => {
@@ -296,7 +315,9 @@ pub fn update<'a, Message>(
                 event::Status::Captured
             } else if layout.bounds().contains(cursor_position) {
                 state.is_open = true;
-                state.hovered_option = options.iter().position(|option| Some(option.1[0].2) == selected.copied());
+                state.hovered_option = options
+                    .iter()
+                    .position(|option| Some(option.1[0].2) == selected.copied());
 
                 event::Status::Captured
             } else {
@@ -333,15 +354,15 @@ pub fn update<'a, Message>(
 
                 let next_option = if y < 0.0 {
                     if let Some(selected) = selected {
-                        find_next(selected, options.iter().map(|x|{&x.1[0].2}))
+                        find_next(selected, options.iter().map(|x| &x.1[0].2))
                     } else {
-                        options.first().map(|x|{&x.1[0].2})
+                        options.first().map(|x| &x.1[0].2)
                     }
                 } else if y > 0.0 {
                     if let Some(selected) = selected {
-                        find_next(selected, options.iter().map(|x|{&x.1[0].2}).rev())
+                        find_next(selected, options.iter().map(|x| &x.1[0].2).rev())
                     } else {
-                        options.last().map(|x|{&x.1[0].2})
+                        options.last().map(|x| &x.1[0].2)
                     }
                 } else {
                     None
@@ -386,12 +407,13 @@ pub fn overlay<'a, Message, Renderer>(
     padding: Padding,
     text_size: Option<u16>,
     font: Renderer::Font,
-    options: &'a [(String,Vec<(image::Handle,String,i32)>)],
+    options: &'a [(String, Vec<(image::Handle, String, i32)>)],
     style: <Renderer::Theme as StyleSheet>::Style,
+    icon_size: Size,
 ) -> Option<overlay::Element<'a, Message, Renderer>>
 where
     Message: 'a,
-    Renderer: text::Renderer+image::Renderer<Handle = image::Handle> + 'a,
+    Renderer: text::Renderer + image::Renderer<Handle = image::Handle> + 'a,
     Renderer::Theme: StyleSheet + scrollable::StyleSheet + menu::StyleSheet + container::StyleSheet,
     <Renderer::Theme as menu::StyleSheet>::Style: From<<Renderer::Theme as StyleSheet>::Style>,
 {
@@ -403,9 +425,11 @@ where
             options,
             &mut state.hovered_option,
             &mut state.last_selection,
-            &mut state.style_menu
+            &mut state.style_menu,
+            &mut state.style_menu_hovered_option,
+            icon_size,
         )
-        .width(bounds.width.round() as u16)
+        .width(230)
         .padding(padding)
         .font(font)
         .style(style);

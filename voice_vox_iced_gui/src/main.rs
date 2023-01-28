@@ -50,6 +50,7 @@ pub(crate) enum Message {
     QueryParameterCommit,
     APICall(APICall),
     APIResult(APIResult),
+    CharacterChange(String, i32),
 }
 #[derive(Debug, Clone)]
 pub(crate) enum APIResult {
@@ -145,6 +146,8 @@ impl Application for VoiceVox {
                             portrait_and_names: BTreeMap::new(),
                             style_id_uuid_table: BTreeMap::new(),
                             tracking_buffer: vec![History::new(); buffer_count],
+                            character_change_menu: vec![],
+                            prev_style_id_table_len: 0,
                         });
                     }
                     Message::Loaded(Err(_)) => {
@@ -160,6 +163,8 @@ impl Application for VoiceVox {
                             portrait_and_names: BTreeMap::new(),
                             style_id_uuid_table: BTreeMap::new(),
                             tracking_buffer: Vec::new(),
+                            character_change_menu: vec![],
+                            prev_style_id_table_len: 0,
                         });
                     }
                     _ => {}
@@ -173,7 +178,13 @@ impl Application for VoiceVox {
             Self::Loaded(state) => {
                 let mut saved = false;
                 let mut cmd_buff = vec![];
-
+                if state.prev_style_id_table_len != state.style_id_uuid_table.len() {
+                    state.character_change_menu = build_character_change_menu(
+                        &state.portrait_and_names,
+                        &state.style_id_uuid_table,
+                    );
+                    state.prev_style_id_table_len = state.style_id_uuid_table.len();
+                }
                 match message {
                     Message::FileMenuOpen(file_menu) => match file_menu {
                         FileMenu::ExportAll => todo!(),
@@ -353,30 +364,32 @@ impl Application for VoiceVox {
                                     ),
                                 );
 
-                                state.style_id_uuid_table = speaker.styles.iter().fold(
-                                    BTreeMap::new(),
-                                    |mut buffer, speaker_style| {
-                                        if let Some(style_info) = info
-                                            .style_infos
-                                            .iter()
-                                            .find(|style_info| style_info.id == speaker_style.id)
-                                        {
-                                            buffer.insert(
-                                                style_info.id,
-                                                (
-                                                    speaker.speaker_uuid.clone(),
-                                                    speaker_style.name.clone(),
-                                                    widget::image::Handle::from_memory(
-                                                        style_info.icon.clone(),
+                                state
+                                    .style_id_uuid_table
+                                    .append(&mut speaker.styles.iter().fold(
+                                        BTreeMap::new(),
+                                        |mut buffer, speaker_style| {
+                                            if let Some(style_info) =
+                                                info.style_infos.iter().find(|style_info| {
+                                                    style_info.id == speaker_style.id
+                                                })
+                                            {
+                                                buffer.insert(
+                                                    style_info.id,
+                                                    (
+                                                        speaker.speaker_uuid.clone(),
+                                                        speaker_style.name.clone(),
+                                                        widget::image::Handle::from_memory(
+                                                            style_info.icon.clone(),
+                                                        ),
                                                     ),
-                                                ),
-                                            );
-                                            buffer
-                                        } else {
-                                            buffer
-                                        }
-                                    },
-                                );
+                                                );
+                                                buffer
+                                            } else {
+                                                buffer
+                                            }
+                                        },
+                                    ));
                             }
                         }
                     },
@@ -469,6 +482,20 @@ impl Application for VoiceVox {
                             state.tracking_buffer[vt].commit()
                         }
                     }
+                    Message::CharacterChange(audio_item_key, after) => {
+                        if let Some(vt) = state.persistence.viewing_tab {
+                            if let Some(tab_ctx) = state.persistence.tabs.get_mut(vt) {
+                                state.tracking_buffer[vt].apply(
+                                    Diff::CharacterChange {
+                                        audio_item_key,
+                                        before: 0,
+                                        after,
+                                    },
+                                    tab_ctx,
+                                );
+                            }
+                        }
+                    }
                 }
 
                 if !saved {
@@ -559,6 +586,7 @@ impl Application for VoiceVox {
                         &state.portrait_and_names,
                         &state.style_id_uuid_table,
                         &state.tracking_buffer,
+                        &state.character_change_menu,
                     )
                 }
                 Page::ToolBarConfig => build_configure_ui(
@@ -588,8 +616,27 @@ struct State {
     portrait_and_names: BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
     /// StyleID -> (UUID,StyleName,Icon)
     style_id_uuid_table: BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
+    /// (Name,stylemenu (icon ,stylename,styleId))
+    character_change_menu: Vec<(String, Vec<(iced::widget::image::Handle, String, i32)>)>,
+    prev_style_id_table_len: usize,
 }
-
+fn build_character_change_menu(
+    portrait_and_names: &BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
+    style_id_uuid_table: &BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
+) -> Vec<(String, Vec<(iced::widget::image::Handle, String, i32)>)> {
+    let mut menu = vec![];
+    for (_, (_, name, style_ids)) in portrait_and_names.iter() {
+        let mut sub_menu = vec![];
+        for style_id in style_ids {
+            if let Some((_, style_name, icon)) = style_id_uuid_table.get(style_id) {
+                sub_menu.push((icon.clone(), style_name.clone(), *style_id));
+            }
+        }
+        menu.push((name.clone(), sub_menu));
+    }
+    println!("built {:?}", menu);
+    menu
+}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct TabContext {
     file_name: String,

@@ -1,12 +1,12 @@
 {
   "appVersion": "0.13.3",
   "audioKeys": [
-    "d7223e54-0764-4f12-a85a-cdd6bc16d9d0"
+    "a43c0dc7-2517-4ec4-83a0-a48cdfbba96d"
   ],
   "audioItems": {
-    "d7223e54-0764-4f12-a85a-cdd6bc16d9d0": {
+    "a43c0dc7-2517-4ec4-83a0-a48cdfbba96d": {
       "text": "",
-      "styleId": 0,
+      "styleId": 29,
       "query": {
         "accentPhrases": [],
         "speedScale": 1.0,
