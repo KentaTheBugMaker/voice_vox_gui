@@ -24,7 +24,7 @@ where
     options: &'a [(String, Vec<(image::Handle, String, i32)>)],
     hovered_option: &'a mut Option<usize>,
     last_selection: &'a mut Option<i32>,
-    style_menu: &'a mut Option<String>,
+    style_menu: &'a mut Option<usize>,
     style_menu_hovered_option: &'a mut Option<usize>,
     width: u16,
     padding: Padding,
@@ -46,7 +46,7 @@ where
         options: &'a [(String, Vec<(image::Handle, String, i32)>)],
         hovered_option: &'a mut Option<usize>,
         last_selection: &'a mut Option<i32>,
-        style_menu: &'a mut Option<String>,
+        style_menu: &'a mut Option<usize>,
         style_menu_hovered_option: &'a mut Option<usize>,
         icon_size: Size,
     ) -> Self {
@@ -267,7 +267,6 @@ where
         cursor_position: Point,
     ) {
         let bounds = layout.bounds();
-
         self.container.draw(
             self.state,
             renderer,
@@ -288,7 +287,7 @@ where
     options: &'a [(String, Vec<(image::Handle, String, i32)>)],
     hovered_option: &'a mut Option<usize>,
     last_selection: &'a mut Option<i32>,
-    style_menu: &'a mut Option<String>,
+    style_menu: &'a mut Option<usize>,
     style_menu_hovered_option: &'a mut Option<usize>,
     padding: Padding,
     text_size: Option<u16>,
@@ -342,63 +341,72 @@ where
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 let bounds = layout.bounds();
-
+                let text_size = self.text_size.unwrap_or(renderer.default_size());
                 let max_text_width = self
                     .options
                     .iter()
-                    .map(|(name, _)| {
-                        renderer.measure_width(
-                            name,
-                            self.text_size.unwrap_or(renderer.default_size()),
-                            self.font.clone(),
-                        )
-                    })
+                    .map(|(name, _)| renderer.measure_width(name, text_size, self.font.clone()))
                     .reduce(f32::max)
                     .unwrap();
-                let bounds = Rectangle {
-                    width: max_text_width,
-                    ..bounds
-                };
+                let element_height = f32::from(text_size + self.padding.vertical());
 
-                if bounds.contains(cursor_position) {
-                    if let Some(index) = *self.hovered_option {
-                        if let Some(option) = self.options.get(index) {
-                            if bounds.contains(cursor_position) {
-                                *self.last_selection = Some(option.1[0].2);
-                                *self.style_menu = None;
-                            }
+                //we need to detect each element.
+
+                for (from_top, has_notch) in self
+                    .options
+                    .iter()
+                    .enumerate()
+                    .map(|(index, (_, submenu))| (index, submenu.len() > 1))
+                {
+                    let bounds = Rectangle {
+                        width: max_text_width
+                            + self.icon_size.width
+                            + self.padding.left as f32
+                            + if has_notch { 0.0 } else { text_size as f32 },
+                        height: element_height,
+                        x: bounds.x,
+                        y: bounds.y + (element_height * from_top as f32),
+                    };
+                    if bounds.contains(cursor_position) {
+                        if let Some(option) = self.options.get(from_top) {
+                            *self.last_selection = Some(option.1[0].2);
+                            *self.style_menu = None;
+                            *self.style_menu_hovered_option = None;
+                        }
+                    } else {
+                        let notch_bound = Rectangle {
+                            width: text_size as f32,
+                            height: element_height,
+                            y: bounds.y,
+                            x: bounds.x
+                                + max_text_width
+                                + self.icon_size.width
+                                + self.padding.left as f32,
+                        };
+                        if notch_bound.contains(cursor_position) {
+                            *self.style_menu = Some(from_top);
+                            *self.style_menu_hovered_option = None;
+                            *self.hovered_option = None;
+                            println!("open stylemenu");
                         }
                     }
                 }
-            }
-            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
-                let bounds = layout.bounds();
 
-                let max_text_width = self
-                    .options
-                    .iter()
-                    .map(|(name, _)| {
-                        renderer.measure_width(
-                            name,
-                            self.text_size.unwrap_or(renderer.default_size()),
-                            self.font.clone(),
-                        )
-                    })
-                    .reduce(f32::max)
-                    .unwrap();
-                let bounds = Rectangle {
-                    width: max_text_width,
-                    ..bounds
-                };
-
-                if bounds.contains(cursor_position) {
-                    if let Some(index) = *self.hovered_option {
-                        if let Some(option) = self.options.get(index) {
-                            if bounds.contains(cursor_position) {
-                                *self.style_menu = Some(option.0.clone());
-                            }
+                if let Some(from_top) = *self.style_menu {
+                    // build region.
+                    if let Some((_, style_menu)) = self.options.get(from_top) {
+                        if let Some(hovered_option) = *self.style_menu_hovered_option {
+                            *self.last_selection = Some(style_menu[hovered_option].2);
+                            *self.style_menu = None;
+                            println!("set selcted style");
+                        } else {
+                            println!("not hovered on style menu");
                         }
+                    } else {
+                        println!("failed to get style_menu");
                     }
+                } else {
+                    println!("style menu not opend");
                 }
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
@@ -415,67 +423,158 @@ where
                     })
                     .reduce(f32::max)
                     .unwrap();
+
+                let text_size = self.text_size.unwrap_or_else(|| renderer.default_size());
                 let bounds = Rectangle {
-                    width: max_text_width,
+                    width: max_text_width + self.icon_size.width,
                     ..bounds
                 };
-                if bounds.contains(cursor_position) {
-                    let text_size = self.text_size.unwrap_or_else(|| renderer.default_size());
 
+                if bounds.contains(cursor_position) {
                     *self.hovered_option = Some(
                         ((cursor_position.y - bounds.y)
                             / f32::from(text_size + self.padding.vertical()))
                             as usize,
                     );
                 }
-                if let Some(character) = self.style_menu {
+
+                if let Some(from_top) = self.style_menu {
                     // build region.
-                    if let Some((from_top, (name, (style_menu)))) = self
-                        .options
-                        .iter()
-                        .enumerate()
-                        .find(|name| &name.1 .0 == character)
-                    {}
+
+                    if let Some((name, style_menu)) = self.options.get(*from_top) {
+                        let entry_height = f32::from(text_size + self.padding.vertical());
+                        let style_menu_text_width = style_menu
+                            .iter()
+                            .map(|(_, style_name, _)| {
+                                renderer.measure_width(
+                                    &format!("{}({})", name, style_name),
+                                    text_size,
+                                    self.font.clone(),
+                                )
+                            })
+                            .reduce(f32::max)
+                            .unwrap();
+
+                        let bounds = Rectangle {
+                            x: bounds.x
+                                + max_text_width
+                                + self.icon_size.width
+                                + (text_size + self.padding.left) as f32,
+                            y: bounds.y + entry_height * *from_top as f32,
+                            width: self.icon_size.width + style_menu_text_width,
+                            height: entry_height * style_menu.len() as f32,
+                        };
+                        if bounds.contains(cursor_position) {
+                            *self.style_menu_hovered_option =
+                                Some(((cursor_position.y - bounds.y) / entry_height) as usize);
+                        }
+                    }
                 }
             }
             Event::Touch(touch::Event::FingerPressed { .. }) => {
                 let bounds = layout.bounds();
-                let Rectangle {
-                    x,
-                    y,
-                    width,
-                    height,
-                } = bounds;
-                let notch_bounds = Rectangle {
-                    x: x + width - self.text_size.unwrap_or_else(|| renderer.default_size()) as f32,
-                    y,
-                    width: self.text_size.unwrap_or_else(|| renderer.default_size()) as f32,
-                    height,
-                };
-                let shrinked_bounds = Rectangle {
-                    x,
-                    y,
-                    width: width - self.text_size.unwrap_or_else(|| renderer.default_size()) as f32,
-                    height,
-                };
-                if bounds.contains(cursor_position) {
-                    let text_size = self.text_size.unwrap_or_else(|| renderer.default_size());
+                let text_size = self.text_size.unwrap_or(renderer.default_size());
+                let max_text_width = self
+                    .options
+                    .iter()
+                    .map(|(name, _)| renderer.measure_width(name, text_size, self.font.clone()))
+                    .reduce(f32::max)
+                    .unwrap();
+                let element_height = f32::from(text_size + self.padding.vertical());
 
-                    *self.hovered_option = Some(
-                        ((cursor_position.y - bounds.y)
-                            / f32::from(text_size + self.padding.vertical()))
-                            as usize,
-                    );
+                //we need to detect each element.
 
-                    if let Some(index) = *self.hovered_option {
-                        if let Some(option) = self.options.get(index) {
-                            if option.1.len() == 1 || shrinked_bounds.contains(cursor_position) {
-                                *self.last_selection = Some(option.1[0].2);
-                                *self.style_menu = None;
-                            } else if notch_bounds.contains(cursor_position) {
-                                *self.style_menu = Some(option.0.clone());
-                                *self.last_selection = None;
-                            }
+                for (from_top, has_notch) in self
+                    .options
+                    .iter()
+                    .enumerate()
+                    .map(|(index, (_, submenu))| (index, submenu.len() > 1))
+                {
+                    let bounds = Rectangle {
+                        width: max_text_width
+                            + self.icon_size.width
+                            + self.padding.left as f32
+                            + if has_notch { 0.0 } else { text_size as f32 },
+                        height: element_height,
+                        x: bounds.x,
+                        y: bounds.y + (element_height * from_top as f32),
+                    };
+                    if bounds.contains(cursor_position) {
+                        if let Some(option) = self.options.get(from_top) {
+                            *self.last_selection = Some(option.1[0].2);
+                            *self.style_menu = None;
+                            *self.style_menu_hovered_option = None;
+                        }
+                        *self.hovered_option = Some(
+                            ((cursor_position.y - bounds.y)
+                                / f32::from(text_size + self.padding.vertical()))
+                                as usize,
+                        );
+                    } else {
+                        let notch_bound = Rectangle {
+                            width: text_size as f32,
+                            height: element_height,
+                            y: bounds.y,
+                            x: bounds.x
+                                + max_text_width
+                                + self.icon_size.width
+                                + self.padding.left as f32,
+                        };
+                        if notch_bound.contains(cursor_position) {
+                            *self.style_menu = Some(from_top);
+                            *self.style_menu_hovered_option = None;
+                            *self.hovered_option = None;
+                            println!("open stylemenu");
+                        }
+                    }
+                }
+
+                if let Some(from_top) = *self.style_menu {
+                    // build region.
+                    if let Some((_, style_menu)) = self.options.get(from_top) {
+                        if let Some(hovered_option) = *self.style_menu_hovered_option {
+                            *self.last_selection = Some(style_menu[hovered_option].2);
+                            *self.style_menu = None;
+                            println!("set selcted style");
+                        } else {
+                            println!("not hovered on style menu");
+                        }
+                    } else {
+                        println!("failed to get style_menu");
+                    }
+                } else {
+                    println!("style menu not opend");
+                }
+
+                if let Some(from_top) = self.style_menu {
+                    // build region.
+
+                    if let Some((name, style_menu)) = self.options.get(*from_top) {
+                        let entry_height = f32::from(text_size + self.padding.vertical());
+                        let style_menu_text_width = style_menu
+                            .iter()
+                            .map(|(_, style_name, _)| {
+                                renderer.measure_width(
+                                    &format!("{}({})", name, style_name),
+                                    text_size,
+                                    self.font.clone(),
+                                )
+                            })
+                            .reduce(f32::max)
+                            .unwrap();
+
+                        let bounds = Rectangle {
+                            x: bounds.x
+                                + max_text_width
+                                + self.icon_size.width
+                                + (text_size + self.padding.left) as f32,
+                            y: bounds.y + entry_height * *from_top as f32,
+                            width: self.icon_size.width + style_menu_text_width,
+                            height: entry_height * style_menu.len() as f32,
+                        };
+                        if bounds.contains(cursor_position) {
+                            *self.style_menu_hovered_option =
+                                Some(((cursor_position.y - bounds.y) / entry_height) as usize);
                         }
                     }
                 }
@@ -622,7 +721,7 @@ where
                 });
             }
             // draw style menu to right.
-            if Some(&option.0) == self.style_menu.as_ref() {
+            if Some(i) == *self.style_menu {
                 // background paint.
                 let max_width = option
                     .1
@@ -642,7 +741,7 @@ where
                             x: bounds.x + self.icon_size.width + max_text_width + text_size as f32,
                             y: bounds.y,
                             height: (option_height * option.1.len()) as f32,
-                            width: self.icon_size.width + max_width,
+                            width: self.icon_size.width + max_width + self.padding.left as f32,
                         },
                         border_radius: BorderRadius::from(0.0),
                         border_width: 1.0,

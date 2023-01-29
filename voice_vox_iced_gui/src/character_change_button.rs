@@ -247,7 +247,7 @@ pub struct State {
     is_open: bool,
     hovered_option: Option<usize>,
     last_selection: Option<i32>,
-    style_menu: Option<String>,
+    style_menu: Option<usize>,
     style_menu_hovered_option: Option<usize>,
 }
 
@@ -310,7 +310,7 @@ pub fn update<'a, Message>(
             let event_status = if state.is_open {
                 // Event wasn' processed by overlay, so cursor was clicked either outside it's
                 // bounds or on the drop-down, either way we close the overlay.
-                state.is_open = false;
+                state.is_open = state.style_menu.is_some();
 
                 event::Status::Captured
             } else if layout.bounds().contains(cursor_position) {
@@ -429,7 +429,7 @@ where
             &mut state.style_menu_hovered_option,
             icon_size,
         )
-        .width(230)
+        .width(300)
         .padding(padding)
         .font(font)
         .style(style);
