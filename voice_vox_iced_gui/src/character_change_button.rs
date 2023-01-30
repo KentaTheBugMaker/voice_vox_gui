@@ -246,6 +246,7 @@ pub struct State {
     keyboard_modifiers: keyboard::Modifiers,
     is_open: bool,
     hovered_option: Option<usize>,
+    hovered_notch: Option<usize>,
     last_selection: Option<i32>,
     style_menu: Option<usize>,
     style_menu_hovered_option: Option<usize>,
@@ -262,6 +263,7 @@ impl State {
             last_selection: Option::default(),
             style_menu: Option::default(),
             style_menu_hovered_option: Option::default(),
+            hovered_notch: Option::default(),
         }
     }
 }
@@ -424,6 +426,7 @@ where
             &mut state.menu,
             options,
             &mut state.hovered_option,
+            &mut state.hovered_notch,
             &mut state.last_selection,
             &mut state.style_menu,
             &mut state.style_menu_hovered_option,
