@@ -175,10 +175,10 @@ where
             options,
             hovered_option,
             last_selection,
-            font: font.clone(),
+            font,
             text_size,
             padding,
-            style: style.clone(),
+            style,
             style_menu,
             icon_size,
             style_menu_hovered_option,
@@ -475,7 +475,7 @@ where
                             .iter()
                             .map(|(_, style_name, _)| {
                                 renderer.measure_width(
-                                    &format!("{}({})", name, style_name),
+                                    &format!("{name}({style_name})"),
                                     text_size,
                                     self.font.clone(),
                                 )
@@ -573,7 +573,7 @@ where
                             .iter()
                             .map(|(_, style_name, _)| {
                                 renderer.measure_width(
-                                    &format!("{}({})", name, style_name),
+                                    &format!("{name}({style_name})"),
                                     text_size,
                                     self.font.clone(),
                                 )
@@ -687,7 +687,7 @@ where
             }
             let icon_bounds = Rectangle::new(
                 Point {
-                    x: highlight_bounds.x as f32,
+                    x: highlight_bounds.x,
                     y: highlight_bounds.y,
                 },
                 Size {

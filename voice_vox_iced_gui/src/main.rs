@@ -334,7 +334,7 @@ impl Application for VoiceVox {
                     Message::APICall(_request) => {}
                     Message::APIResult(result) => match result {
                         APIResult::Speakers(speakers) => {
-                            println!("{:?}", speakers);
+                            println!("{speakers:?}");
 
                             if let Ok(speakers) = speakers {
                                 for speaker in speakers {
@@ -634,7 +634,7 @@ fn build_character_change_menu(
         }
         menu.push((name.clone(), sub_menu));
     }
-    println!("built {:?}", menu);
+    println!("built {menu:?}");
     menu
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -796,7 +796,7 @@ impl std::fmt::Display for FileMenu {
             FileMenu::SaveProjectAs => "プロジェクトを名前を付けて保存",
             FileMenu::LoadProject => "プロジェクト読み込み",
         };
-        write!(f, "{}", text)
+        write!(f, "{text}")
     }
 }
 fn enumerate_file_menu() -> Vec<FileMenu> {
@@ -844,7 +844,7 @@ impl std::fmt::Display for SettingsMenu {
             SettingsMenu::Dictionary => "読み方&アクセント辞典",
             SettingsMenu::Option => "オプション",
         };
-        write!(f, "{}", text)
+        write!(f, "{text}")
     }
 }
 fn enumerate_settings_menu() -> Vec<SettingsMenu> {

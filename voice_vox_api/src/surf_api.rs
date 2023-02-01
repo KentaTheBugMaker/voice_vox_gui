@@ -38,7 +38,7 @@ pub struct AudioQuery {
 impl AudioQuery {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::AudioQuery, APIError> {
         let request = client()
-            .post(format!("http://{}/audio_query", server))
+            .post(format!("http://{server}/audio_query"))
             .query(&self)?
             .build();
         let mut res = client().send(request).await?;
@@ -68,7 +68,7 @@ pub struct AudioQueryFromPreset {
 impl AudioQueryFromPreset {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::AudioQuery, APIError> {
         let request = client()
-            .post(format!("http://{}/audio_query_from_preset", server))
+            .post(format!("http://{server}/audio_query_from_preset"))
             .query(&self)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -124,7 +124,7 @@ impl From<surf::StatusCode> for AccentPhrasesErrors {
 impl AccentPhrases {
     pub async fn call(self, server: &str) -> Result<AccentPhrasesResponse, AccentPhrasesErrors> {
         let request = client()
-            .post(format!("http://{}/accent_phrases", server))
+            .post(format!("http://{server}/accent_phrases"))
             .query(&self)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -156,7 +156,7 @@ pub struct MoraData {
 impl MoraData {
     pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
-            .post(format!("http://{}/mora_data", server))
+            .post(format!("http://{server}/mora_data"))
             .query(&self)?
             .body_json(&self.accent_phrases)?
             .build();
@@ -186,7 +186,7 @@ pub struct MoraLength {
 impl MoraLength {
     pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
-            .post(format!("http://{}/mora_length", server))
+            .post(format!("http://{server}/mora_length"))
             .query(&self)?
             .body_json(&self.accent_phrases)?
             .build();
@@ -216,7 +216,7 @@ pub struct MoraPitch {
 impl MoraPitch {
     pub async fn call(self, server: &str) -> Result<Vec<AccentPhrase>, APIError> {
         let request = client()
-            .post(format!("http://{}/mora_pitch", server))
+            .post(format!("http://{server}/mora_pitch"))
             .query(&self)?
             .body_json(&self.accent_phrases)?
             .build();
@@ -248,7 +248,7 @@ pub struct Synthesis {
 impl Synthesis {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
-            .post(format!("http://{}/synthesis", server))
+            .post(format!("http://{server}/synthesis"))
             .query(&self)?
             .body_json(&self.audio_query)?
             .build();
@@ -278,7 +278,7 @@ pub struct CancellableSynthesis {
 impl CancellableSynthesis {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
-            .post(format!("http://{}/cancellable_synthesis", server))
+            .post(format!("http://{server}/cancellable_synthesis"))
             .query(&self)?
             .body_json(&self.audio_query)?
             .build();
@@ -310,7 +310,7 @@ pub struct MultiSynthesis {
 impl MultiSynthesis {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
-            .post(format!("http://{}/multi_synthesis", server))
+            .post(format!("http://{server}/multi_synthesis"))
             .query(&self)?
             .body_json(&self.audio_query)?
             .build();
@@ -344,7 +344,7 @@ pub struct SynthesisMorphing {
 impl SynthesisMorphing {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
-            .post(format!("http://{}/synthesis_morphing", server))
+            .post(format!("http://{server}/synthesis_morphing"))
             .query(&self)?
             .body_json(&self.audio_query)?
             .build();
@@ -377,7 +377,7 @@ impl ConnectWaves {
             buffer.push(engine::general_purpose::STANDARD.encode(wave));
         }
         let request = client()
-            .post(format!("http://{}/connect_waves", server))
+            .post(format!("http://{server}/connect_waves"))
             .body_json(&buffer)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -398,7 +398,7 @@ pub struct Presets;
 
 impl Presets {
     pub async fn call(self, server: &str) -> Result<Vec<crate::api_schema::Preset>, APIError> {
-        let request = client().get(format!("http://{}/presets", server)).build();
+        let request = client().get(format!("http://{server}/presets")).build();
         let mut res = client().send(request).await.unwrap();
         match res.status() {
             StatusCode::Ok => Ok(res.body_json::<Vec<crate::api_schema::Preset>>().await?),
@@ -412,7 +412,7 @@ pub struct Version;
 
 impl Version {
     pub async fn call(self, server: &str) -> Result<Option<String>, APIError> {
-        let request = client().get(format!("http://{}/version", server)).build();
+        let request = client().get(format!("http://{server}/version")).build();
         let mut res = client().send(request).await.unwrap();
         match res.status() {
             StatusCode::Ok => Ok(res.body_json::<Option<String>>().await?),
@@ -427,7 +427,7 @@ pub struct CoreVersions;
 impl CoreVersions {
     pub async fn call(self, server: &str) -> Result<Vec<String>, APIError> {
         let request = client()
-            .get(format!("http://{}/core_versions", server))
+            .get(format!("http://{server}/core_versions"))
             .build();
         let mut res = client().send(request).await.unwrap();
         match res.status() {
@@ -446,7 +446,7 @@ pub struct Speakers {
 impl Speakers {
     pub async fn call(self, server: &str) -> Result<Vec<crate::api_schema::Speaker>, APIError> {
         let request = client()
-            .get(format!("http://{}/speakers", server))
+            .get(format!("http://{server}/speakers"))
             .query(&self)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -470,7 +470,7 @@ pub struct SpeakerInfo {
 impl SpeakerInfo {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::SpeakerInfo, APIError> {
         let req = client()
-            .get(format!("http://{}/speaker_info", server))
+            .get(format!("http://{server}/speaker_info"))
             .query(&self)?
             .build();
         let mut res = client().send(req).await.unwrap();
@@ -497,7 +497,7 @@ pub struct SupportedDevices {
 impl SupportedDevices {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::SupportedDevices, APIError> {
         let request = client()
-            .get(format!("http://{}/supported_devices", server))
+            .get(format!("http://{server}/supported_devices"))
             .query(&self)?
             .build();
         let mut res = client().send(request).await.unwrap();
@@ -540,9 +540,9 @@ impl From<surf::Error> for APIError {
     }
 }
 
-impl Into<APIError> for std::io::Error {
-    fn into(self) -> APIError {
-        APIError::Io(self)
+impl From<std::io::Error> for APIError {
+    fn from(val: std::io::Error) -> Self {
+        APIError::Io(val)
     }
 }
 
@@ -561,7 +561,7 @@ impl DownloadableLibraries {
         server: &str,
     ) -> Result<crate::api_schema::DownloadableLibraries, APIError> {
         let req = client()
-            .get(format!("http://{}/downloadble_libraries", server))
+            .get(format!("http://{server}/downloadble_libraries"))
             .build();
         let mut res = client().send(req).await.unwrap();
         match res.status() {
@@ -588,7 +588,7 @@ pub struct InitializeSpeaker {
 impl InitializeSpeaker {
     pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
-            .post(format!("http://{}/initialize_speaker", server))
+            .post(format!("http://{server}/initialize_speaker"))
             .query(&self)?
             .build();
         let mut res = client().send(req).await.unwrap();
@@ -612,7 +612,7 @@ pub struct IsInitializedSpeaker {
 impl IsInitializedSpeaker {
     pub async fn call(self, server: &str) -> Result<bool, APIError> {
         let req = client()
-            .get(format!("http://{}/is_initialized_speaker", server))
+            .get(format!("http://{server}/is_initialized_speaker"))
             .query(&self)?
             .build();
         let mut res = client().send(req).await.unwrap();
@@ -632,7 +632,7 @@ pub struct EngineManifest;
 impl EngineManifest {
     pub async fn call(self, server: &str) -> Result<crate::api_schema::EngineManifest, APIError> {
         let req = client()
-            .get(format!("http://{}/engine_manifest", server))
+            .get(format!("http://{server}/engine_manifest"))
             .build();
         let mut res = client().send(req).await.unwrap();
         match res.status() {
@@ -661,7 +661,7 @@ impl UserDict {
         self,
         server: &str,
     ) -> Result<HashMap<String, crate::api_schema::UserDictWord>, APIError> {
-        let req = client().get(format!("http://{}/user_dict", server)).build();
+        let req = client().get(format!("http://{server}/user_dict")).build();
         let mut res = client().send(req).await.unwrap();
         match res.status() {
             StatusCode::Ok => Ok(res
@@ -694,7 +694,7 @@ pub struct UserDictWord {
 impl UserDictWord {
     pub async fn call(self, server: &str) -> Result<String, APIError> {
         let req = client()
-            .post(format!("http://{}/user_dict_word", server))
+            .post(format!("http://{server}/user_dict_word"))
             .query(&self)?
             .build();
         let mut res = client().send(req).await.unwrap();
@@ -780,7 +780,7 @@ pub struct ImportUserDict {
 impl ImportUserDict {
     pub async fn call(self, server: &str) -> Result<(), APIError> {
         let req = client()
-            .post(format!("http://{}/import_user_dict", server))
+            .post(format!("http://{server}/import_user_dict"))
             .body_json(&self.dictionary)?
             .build();
         let mut res = client().send(req).await?;

@@ -371,7 +371,7 @@ pub fn update<'a, Message>(
                 };
 
                 if let Some(next_option) = next_option {
-                    shell.publish((on_selected)(next_option.clone()));
+                    shell.publish((on_selected)(*next_option));
                 }
 
                 event::Status::Captured

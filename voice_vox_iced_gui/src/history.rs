@@ -514,7 +514,7 @@ impl History {
                     });
                 }
                 (a, b) => {
-                    eprintln!("not supported to squash {:?} {:?}", a, b);
+                    eprintln!("not supported to squash {a:?} {b:?}");
                     self.undo_stack.extend_from_slice(&self.unsquashed_buffer);
                     self.unsquashed_buffer.clear();
                 }
