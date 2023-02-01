@@ -19,7 +19,7 @@ pub(crate) fn build_ui<'a>(
     portraits: &BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
     style_id_uuid_table: &BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
     histories: &'a [History],
-    menu: &'a [(String, Vec<(iced::widget::image::Handle, String, i32)>)],
+    menu: crate::character_change_dropdown_menu::OptionsRef<'a>,
 ) -> Column<'a, Message, Renderer> {
     let mut page = Column::new();
     page = page.push(tool_bar.build_toolbar());

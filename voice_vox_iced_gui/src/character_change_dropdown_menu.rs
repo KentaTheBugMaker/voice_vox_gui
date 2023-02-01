@@ -11,7 +11,7 @@ use iced_native::{
     widget::{container, scrollable, Container, Tree},
     Clipboard, Layout, Shell, Widget, IME,
 };
-
+pub(crate) type OptionsRef<'a>  =&'a [(String, Vec<(image::Handle, String, i32)>)];
 /// A list of selectable options.
 #[allow(missing_debug_implementations)]
 pub struct Menu<'a, Renderer>
@@ -21,7 +21,7 @@ where
 {
     state: &'a mut State,
     // name , styles(icon,stylename,styleid).
-    options: &'a [(String, Vec<(image::Handle, String, i32)>)],
+    options: OptionsRef<'a>,
     hovered_option: &'a mut Option<usize>,
     hovered_notch: &'a mut Option<usize>,
     last_selection: &'a mut Option<i32>,
@@ -44,7 +44,7 @@ where
     /// the message to produced when an option is selected.
     pub fn new(
         state: &'a mut State,
-        options: &'a [(String, Vec<(image::Handle, String, i32)>)],
+        options: OptionsRef<'a>,
         hovered_option: &'a mut Option<usize>,
         hovered_notch: &'a mut Option<usize>,
         last_selection: &'a mut Option<i32>,
@@ -289,7 +289,7 @@ where
     Renderer: text::Renderer + image::Renderer<Handle = image::Handle>,
     Renderer::Theme: StyleSheet,
 {
-    options: &'a [(String, Vec<(image::Handle, String, i32)>)],
+    options: OptionsRef<'a>,
     hovered_option: &'a mut Option<usize>,
     hovered_notch: &'a mut Option<usize>,
     last_selection: &'a mut Option<i32>,

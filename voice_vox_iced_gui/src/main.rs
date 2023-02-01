@@ -617,13 +617,14 @@ struct State {
     /// StyleID -> (UUID,StyleName,Icon)
     style_id_uuid_table: BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
     /// (Name,stylemenu (icon ,stylename,styleId))
-    character_change_menu: Vec<(String, Vec<(iced::widget::image::Handle, String, i32)>)>,
+    character_change_menu: OptionsOwned,
     prev_style_id_table_len: usize,
 }
+pub(crate) type OptionsOwned=Vec<(String, Vec<(iced::widget::image::Handle, String, i32)>)>;
 fn build_character_change_menu(
     portrait_and_names: &BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
     style_id_uuid_table: &BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
-) -> Vec<(String, Vec<(iced::widget::image::Handle, String, i32)>)> {
+) -> OptionsOwned{
     let mut menu = vec![];
     for (_, (_, name, style_ids)) in portrait_and_names.iter() {
         let mut sub_menu = vec![];

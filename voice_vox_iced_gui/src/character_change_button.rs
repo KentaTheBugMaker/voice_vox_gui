@@ -15,7 +15,7 @@ use iced_native::{
 };
 
 use crate::character_change_dropdown_menu::Menu;
-
+pub(crate) type OptionsCow<'a>= Cow<'a, [(String, Vec<(image::Handle, String, i32)>)]>;
 /// A widget for selecting a single value from a list of options.
 #[allow(missing_debug_implementations)]
 pub struct CharacterChangeButton<'a, Message, Renderer>
@@ -24,7 +24,7 @@ where
     Renderer::Theme: StyleSheet,
 {
     on_selected: Box<dyn Fn(i32) -> Message + 'a>,
-    options: Cow<'a, [(String, Vec<(image::Handle, String, i32)>)]>,
+    options:OptionsCow<'a>,
     icon: Option<iced_native::image::Handle>,
     selected: Option<i32>,
     width: Length,
@@ -46,7 +46,7 @@ where
     /// Creates a new [`PickList`] with the given list of options, the current
     /// selected value, and the message to produce when an option is selected.
     pub fn new(
-        options: impl Into<Cow<'a, [(String, Vec<(image::Handle, String, i32)>)]>>,
+        options: impl Into<OptionsCow<'a>>,
         selected: Option<i32>,
         on_selected: impl Fn(i32) -> Message + 'a,
     ) -> Self {
@@ -301,7 +301,7 @@ pub fn update<'a, Message>(
     shell: &mut Shell<'_, Message>,
     on_selected: &dyn Fn(i32) -> Message,
     selected: Option<&i32>,
-    options: &[(String, Vec<(image::Handle, String, i32)>)],
+    options: crate::character_change_dropdown_menu::OptionsRef<'a>,
     state: impl FnOnce() -> &'a mut State,
 ) -> event::Status {
     match event {
@@ -409,7 +409,7 @@ pub fn overlay<'a, Message, Renderer>(
     padding: Padding,
     text_size: Option<u16>,
     font: Renderer::Font,
-    options: &'a [(String, Vec<(image::Handle, String, i32)>)],
+    options: crate::character_change_dropdown_menu::OptionsRef<'a>,
     style: <Renderer::Theme as StyleSheet>::Style,
     icon_size: Size,
 ) -> Option<overlay::Element<'a, Message, Renderer>>
