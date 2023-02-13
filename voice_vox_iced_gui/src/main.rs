@@ -15,6 +15,7 @@ use iced::{
 };
 use main_page::InTabPane;
 
+use project::VoiceVoxProject;
 use serde::{Deserialize, Serialize};
 
 use toolbar::{build_configure_ui, ConfigureMessage, ToolBarConfig, ToolBarKind};
@@ -51,6 +52,8 @@ pub(crate) enum Message {
     APICall(APICall),
     APIResult(APIResult),
     CharacterChange(String, i32),
+    FileLoadError,
+    NewTab(TabContext),
 }
 #[derive(Debug, Clone)]
 pub(crate) enum APIResult {
@@ -203,7 +206,35 @@ impl Application for VoiceVox {
 
                         FileMenu::SaveProject => todo!(),
                         FileMenu::SaveProjectAs => todo!(),
-                        FileMenu::LoadProject => todo!(),
+                        FileMenu::LoadProject => cmd_buff.push(Command::perform(
+                            rfd::AsyncFileDialog::new()
+                                .add_filter("VoiceVox project file", &["vvproj"])
+                                .pick_file(),
+                            |filehandle| {
+                                if let Some(file_handle) = filehandle {
+                                    let path = file_handle.path();
+                                    let data: Result<VoiceVoxProject, Message> =
+                                        std::fs::read(path)
+                                            .map_err(|_| Message::FileLoadError)
+                                            .and_then(|data| {
+                                                serde_json::from_slice(&data)
+                                                    .map_err(|_| Message::FileLoadError)
+                                            });
+
+                                    if let Ok(data) = data {
+                                        Message::NewTab(TabContext {
+                                            file_name: file_handle.file_name(),
+                                            project: data,
+                                            editing_line: 0,
+                                        })
+                                    } else {
+                                        Message::FileLoadError
+                                    }
+                                } else {
+                                    Message::FileLoadError
+                                }
+                            },
+                        )),
                     },
                     Message::EngineMenuOpen(_) => {}
                     Message::SettingsMenuOpen(settings_menu) => match settings_menu {
@@ -496,6 +527,11 @@ impl Application for VoiceVox {
                             }
                         }
                     }
+                    Message::FileLoadError => {}
+                    Message::NewTab(tab_ctx) => {
+                        state.persistence.tabs.push(tab_ctx);
+                        state.tracking_buffer.push(History::new());
+                    }
                 }
 
                 if !saved {
@@ -620,11 +656,11 @@ struct State {
     character_change_menu: OptionsOwned,
     prev_style_id_table_len: usize,
 }
-pub(crate) type OptionsOwned=Vec<(String, Vec<(iced::widget::image::Handle, String, i32)>)>;
+pub(crate) type OptionsOwned = Vec<(String, Vec<(iced::widget::image::Handle, String, i32)>)>;
 fn build_character_change_menu(
     portrait_and_names: &BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
     style_id_uuid_table: &BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
-) -> OptionsOwned{
+) -> OptionsOwned {
     let mut menu = vec![];
     for (_, (_, name, style_ids)) in portrait_and_names.iter() {
         let mut sub_menu = vec![];

@@ -1,1 +1,24 @@
-{"appVersion":"0.13.4","audioKeys":["ff43f568-eed6-4d1c-9472-539485b48a1f"],"audioItems":{"ff43f568-eed6-4d1c-9472-539485b48a1f":{"text":"","styleId":2,"query":{"accentPhrases":[],"speedScale":1,"pitchScale":0,"intonationScale":1,"volumeScale":1,"prePhonemeLength":0.1,"postPhonemeLength":0.1,"outputSamplingRate":24000,"outputStereo":false,"kana":""}}}}
+{
+  "appVersion": "0.13.4",
+  "audioKeys": [
+    "ff43f568-eed6-4d1c-9472-539485b48a1f"
+  ],
+  "audioItems": {
+    "ff43f568-eed6-4d1c-9472-539485b48a1f": {
+      "text": "",
+      "styleId": 2,
+      "query": {
+        "accentPhrases": [],
+        "speedScale": 1.0,
+        "pitchScale": 0.0,
+        "intonationScale": 1.0,
+        "volumeScale": 1.0,
+        "prePhonemeLength": 0.1,
+        "postPhonemeLength": 0.1,
+        "outputSamplingRate": 24000,
+        "outputStereo": false,
+        "kana": ""
+      }
+    }
+  }
+}
