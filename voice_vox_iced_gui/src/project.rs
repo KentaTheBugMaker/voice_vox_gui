@@ -20,6 +20,19 @@ pub struct VoiceVoxProject {
     pub audioKeys: Vec<String>,
     pub audioItems: HashMap<String, AudioItem>,
 }
+impl VoiceVoxProject {
+    pub fn add_audio_cell(&mut self) {
+        let audio_item = AudioItem {
+            text: String::new(),
+            styleId: 0,
+            query: Some(voice_vox_api::api_schema::AudioQuery::default().into()),
+            presetKey: None,
+        };
+        let uuid = uuid::Uuid::new_v4().to_string();
+        self.audioKeys.push(uuid.clone());
+        self.audioItems.insert(uuid, audio_item);
+    }
+}
 impl Default for VoiceVoxProject {
     fn default() -> Self {
         let audio_item = AudioItem {

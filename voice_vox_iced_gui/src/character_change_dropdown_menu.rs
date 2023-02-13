@@ -11,7 +11,7 @@ use iced_native::{
     widget::{container, scrollable, Container, Tree},
     Clipboard, Layout, Shell, Widget, IME,
 };
-pub(crate) type OptionsRef<'a>  =&'a [(String, Vec<(image::Handle, String, i32)>)];
+pub(crate) type OptionsRef<'a> = &'a [(String, Vec<(image::Handle, String, i32)>)];
 /// A list of selectable options.
 #[allow(missing_debug_implementations)]
 pub struct Menu<'a, Renderer>
@@ -561,8 +561,8 @@ where
                         if let Some(hovered_option) = *self.style_menu_hovered_option {
                             *self.last_selection = Some(style_menu[hovered_option].2);
                             *self.style_menu = None;
-                        } 
-                    } 
+                        }
+                    }
                 }
                 if let Some(from_top) = self.style_menu {
                     // build region.

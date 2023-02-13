@@ -54,6 +54,7 @@ pub(crate) enum Message {
     CharacterChange(String, i32),
     FileLoadError,
     NewTab(TabContext),
+    NewAudioCell,
 }
 #[derive(Debug, Clone)]
 pub(crate) enum APIResult {
@@ -531,6 +532,15 @@ impl Application for VoiceVox {
                     Message::NewTab(tab_ctx) => {
                         state.persistence.tabs.push(tab_ctx);
                         state.tracking_buffer.push(History::new());
+                    }
+                    Message::NewAudioCell => {
+                        if let Some(tab_ctx) = state
+                            .persistence
+                            .viewing_tab
+                            .and_then(|tab_number| state.persistence.tabs.get_mut(tab_number))
+                        {
+                            tab_ctx.project.add_audio_cell();
+                        }
                     }
                 }
 

@@ -62,7 +62,20 @@ pub(crate) fn build_ui<'a>(
                         }
 
                         pane_grid::Content::new(iced::widget::scrollable(
-                            column.width(Length::Fill).height(Length::Fill),
+                            column
+                                .push(
+                                    iced::widget::button(
+                                        iced::widget::text("+")
+                                            .horizontal_alignment(
+                                                iced::alignment::Horizontal::Center,
+                                            )
+                                            .width(Length::Fill),
+                                    )
+                                    .width(Length::Fill)
+                                    .on_press(Message::NewAudioCell),
+                                )
+                                .width(Length::Fill)
+                                .height(Length::Fill),
                         ))
                     }
                     InTabPane::Bottom => pane_grid::Content::new(Text::new("wip")),
