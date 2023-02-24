@@ -1,5 +1,4 @@
 mod character_change_button;
-mod character_change_dropdown_menu;
 mod history;
 mod main_page;
 mod project;
@@ -667,6 +666,7 @@ struct State {
     prev_style_id_table_len: usize,
 }
 pub(crate) type OptionsOwned = Vec<(String, Vec<(iced::widget::image::Handle, String, i32)>)>;
+pub(crate) type OptionsRef<'a> = &'a [(String, Vec<(iced::widget::image::Handle, String, i32)>)];
 fn build_character_change_menu(
     portrait_and_names: &BTreeMap<String, (iced::widget::image::Handle, String, Vec<i32>)>,
     style_id_uuid_table: &BTreeMap<i32, (String, String, iced::widget::image::Handle)>,
