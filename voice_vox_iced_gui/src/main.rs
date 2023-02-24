@@ -3,7 +3,7 @@ mod history;
 mod main_page;
 mod project;
 mod toolbar;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use async_std::io::{ReadExt, WriteExt};
 use history::{Diff, History};
@@ -18,7 +18,8 @@ use project::VoiceVoxProject;
 use serde::{Deserialize, Serialize};
 
 use toolbar::{build_configure_ui, ConfigureMessage, ToolBarConfig, ToolBarKind};
-use voice_vox_api::api::{APIError, SpeakerInfo};
+use voice_vox_api::api::{APIError, MorpableTargets, SpeakerInfo};
+
 fn main() -> iced::Result {
     VoiceVox::run(Settings {
         default_font: Some(include_bytes!("../font/NotoSansCJKjp-Regular.otf")),
@@ -61,6 +62,10 @@ pub(crate) enum APIResult {
     SpeakerInfo(
         voice_vox_api::api_schema::Speaker,
         Result<voice_vox_api::api_schema::SpeakerInfo, APIError>,
+    ),
+    MorpableTargets(
+        i32,
+        Result<Vec<HashMap<i32, voice_vox_api::api_schema::MorphableTargetInfo>>, APIError>,
     ),
 }
 
@@ -151,6 +156,7 @@ impl Application for VoiceVox {
                             tracking_buffer: vec![History::new(); buffer_count],
                             character_change_menu: vec![],
                             prev_style_id_table_len: 0,
+                            morphable_targets: BTreeMap::new(),
                         });
                     }
                     Message::Loaded(Err(_)) => {
@@ -168,11 +174,12 @@ impl Application for VoiceVox {
                             tracking_buffer: Vec::new(),
                             character_change_menu: vec![],
                             prev_style_id_table_len: 0,
+                            morphable_targets: BTreeMap::new(),
                         });
                     }
                     _ => {}
                 }
-                // collect informations from engine.
+                // collect informations from engine.s
                 Command::perform(
                     voice_vox_api::api::Speakers { core_version: None }.call("localhost:50021"),
                     |res| Message::APIResult(APIResult::Speakers(res)),
@@ -394,7 +401,23 @@ impl Application for VoiceVox {
                                         speaker.styles.iter().map(|x| x.id).collect(),
                                     ),
                                 );
-
+                                for style in speaker.styles.iter() {
+                                    let style_id = style.id;
+                                    {
+                                        cmd_buff.push(Command::perform(
+                                            MorpableTargets {
+                                                style_id: vec![style_id],
+                                                core_version: None,
+                                            }
+                                            .call(SERVER.get().unwrap()),
+                                            move |response| {
+                                                Message::APIResult(APIResult::MorpableTargets(
+                                                    style_id, response,
+                                                ))
+                                            },
+                                        ))
+                                    }
+                                }
                                 state
                                     .style_id_uuid_table
                                     .append(&mut speaker.styles.iter().fold(
@@ -421,6 +444,18 @@ impl Application for VoiceVox {
                                             }
                                         },
                                     ));
+                            }
+                        }
+                        APIResult::MorpableTargets(style_id, morphable_targets) => {
+                            if let Ok(mut morphable_targets) = morphable_targets {
+                                state.morphable_targets.insert(
+                                    style_id,
+                                    morphable_targets[0]
+                                        .drain()
+                                        .filter(|(_, mti)| mti.is_morphable)
+                                        .map(|(style_id, _)| style_id)
+                                        .collect(),
+                                );
                             }
                         }
                     },
@@ -664,6 +699,7 @@ struct State {
     /// (Name,stylemenu (icon ,stylename,styleId))
     character_change_menu: OptionsOwned,
     prev_style_id_table_len: usize,
+    morphable_targets: BTreeMap<i32, BTreeSet<i32>>,
 }
 pub(crate) type OptionsOwned = Vec<(String, Vec<(iced::widget::image::Handle, String, i32)>)>;
 pub(crate) type OptionsRef<'a> = &'a [(String, Vec<(iced::widget::image::Handle, String, i32)>)];

@@ -248,6 +248,7 @@ pub struct Preset {
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Speaker {
+    pub supported_features: SpeakerSupportedFeatures,
     /// character name
     pub name: String,
     /// used to call SpeakerInfo.
@@ -255,6 +256,18 @@ pub struct Speaker {
     /// collection of emotion style.
     pub styles: Vec<SpeakerStyle>,
     pub version: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct SpeakerSupportedFeatures {
+    pub permitted_synthesis_morphing: SpeakerSupportPermittedSynthesisMorphing,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub enum SpeakerSupportPermittedSynthesisMorphing {
+    ALL,
+    SELF_ONLY,
+    NOTHING,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -353,6 +366,10 @@ impl From<SpeakerInfo> for SpeakerInfoRaw {
         }
     }
 }
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct MorphableTargetInfo {
+    pub is_morphable: bool,
+}
 
 #[derive(Debug, Clone)]
 pub struct StyleInfo {
@@ -415,7 +432,7 @@ impl TryFrom<DownloadableLibrariesRaw> for DownloadableLibraries {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct EngineManifestRaw {
+pub(crate) struct EngineManifestRaw {
     manifest_version: String,
     name: String,
     uuid: String,
@@ -427,6 +444,19 @@ pub struct EngineManifestRaw {
     dependency_licenses: Vec<LicenseInfo>,
     downloadable_libraries_path: String,
     downloadable_libraries_url: String,
+    supported_features: SupportedFeatures,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SupportedFeatures {
+    pub adjust_mora_pitch: bool,
+    pub adjust_phoneme_length: bool,
+    pub adjust_speed_scale: bool,
+    pub adjust_pitch_scale: bool,
+    pub adjust_intonation_scale: bool,
+    pub adjust_volume_scale: bool,
+    pub interrogative_upspeak: bool,
+    pub synthesis_morphing: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -442,6 +472,7 @@ pub struct EngineManifest {
     pub dependency_licenses: Vec<LicenseInfo>,
     pub downloadable_libraries_path: String,
     pub downloadable_libraries_url: String,
+    pub supported_features: SupportedFeatures,
 }
 
 impl TryFrom<EngineManifestRaw> for EngineManifest {
@@ -461,24 +492,26 @@ impl TryFrom<EngineManifestRaw> for EngineManifest {
             dependency_licenses: raw.dependency_licenses,
             downloadable_libraries_path: raw.downloadable_libraries_path,
             downloadable_libraries_url: raw.downloadable_libraries_url,
+            supported_features: raw.supported_features,
         })
     }
 }
 
 impl From<EngineManifest> for EngineManifestRaw {
-    fn from(raw: EngineManifest) -> Self {
+    fn from(rustic: EngineManifest) -> Self {
         Self {
-            manifest_version: raw.manifest_version,
-            name: raw.name,
-            uuid: raw.uuid,
-            url: raw.url,
-            icon: engine::general_purpose::STANDARD.encode(raw.icon),
-            default_sampling_rate: raw.default_sampling_rate,
-            term_of_service: raw.term_of_service,
-            update_infos: raw.update_infos,
-            dependency_licenses: raw.dependency_licenses,
-            downloadable_libraries_path: raw.downloadable_libraries_path,
-            downloadable_libraries_url: raw.downloadable_libraries_url,
+            manifest_version: rustic.manifest_version,
+            name: rustic.name,
+            uuid: rustic.uuid,
+            url: rustic.url,
+            icon: engine::general_purpose::STANDARD.encode(rustic.icon),
+            default_sampling_rate: rustic.default_sampling_rate,
+            term_of_service: rustic.term_of_service,
+            update_infos: rustic.update_infos,
+            dependency_licenses: rustic.dependency_licenses,
+            downloadable_libraries_path: rustic.downloadable_libraries_path,
+            downloadable_libraries_url: rustic.downloadable_libraries_url,
+            supported_features: rustic.supported_features,
         }
     }
 }

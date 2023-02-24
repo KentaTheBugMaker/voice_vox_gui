@@ -4,7 +4,7 @@
 
 use crate::api_schema::{
     self, AccentPhrase, AccentPhrasesResponse, EngineManifestRaw, HttpValidationError,
-    ParseKanaBadRequest, WordType,
+    MorphableTargetInfo, ParseKanaBadRequest, WordType,
 };
 
 use base64::{engine, Engine};
@@ -323,6 +323,48 @@ pub struct SynthesisMorphing {
     pub audio_query: crate::api_schema::AudioQuery,
 }
 
+/// 指定されたベース話者に対してエンジン内の各話者がモーフィング機能を利用可能か返します。
+/// モーフィングの許可/禁止は/speakersのspeaker.supported_features.synthesis_morphingに記載されています。
+/// プロパティが存在しない場合は、モーフィングが許可されているとみなします。
+pub struct MorpableTargets {
+    // in request json.
+    pub style_id: Vec<i32>,
+    // in query
+    pub core_version: CoreVersion,
+}
+
+impl MorpableTargets {
+    pub async fn call(
+        self,
+        server: &str,
+    ) -> Result<Vec<HashMap<i32, MorphableTargetInfo>>, APIError> {
+        let request = client()
+            .post(format!("http://{}/morphable_targets", server))
+            .add_core_version(&self.core_version)
+            .json(&self.style_id)
+            .build()?;
+        let res = client().execute(request).await?;
+        match res.status() {
+            StatusCode::OK => Ok(res
+                .json::<Vec<HashMap<String, MorphableTargetInfo>>>()
+                .await
+                .map(|mut results| {
+                    results
+                        .drain(..)
+                        .map(|mut morphable_targets| {
+                            morphable_targets
+                                .drain()
+                                .map(|(style_id, mti)| (style_id.parse::<i32>().unwrap(), mti))
+                                .collect()
+                        })
+                        .collect()
+                })?),
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            x => Err(x.into()),
+        }
+    }
+}
+
 impl SynthesisMorphing {
     pub async fn call(self, server: &str) -> Result<Vec<u8>, APIError> {
         let request = client()
@@ -393,7 +435,84 @@ impl Presets {
         }
     }
 }
+///新しいプリセットを追加します
+///
+/// # Parameters
+///
+/// preset: Preset 新しいプリセット。 プリセットIDが既存のものと重複している場合は、新規のプリセットIDが採番されます。
+///
+/// # Returns
+///
+/// id: int 追加したプリセットのプリセットID
+pub struct AddPreset {
+    pub preset: api_schema::Preset,
+}
+impl AddPreset {
+    pub async fn call(self, server: &str) -> Result<i32, APIError> {
+        let request = client()
+            .post(format!("http://{}/add_preset", server))
+            .json(&self.preset)
+            .build()
+            .unwrap();
+        let res = client().execute(request).await.unwrap();
+        match res.status() {
+            StatusCode::OK => Ok(res.json::<i32>().await?),
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            x => Err(x.into()),
+        }
+    }
+}
+///既存のプリセットを更新します
+/// # Parameters
+///
+/// preset: Preset 更新するプリセット。 プリセットIDが更新対象と一致している必要があります。
+///
+/// # Returns
+///
+/// id: int 更新したプリセットのプリセットID
+pub struct UpdatePreset {
+    pub preset: api_schema::Preset,
+}
+impl UpdatePreset {
+    pub async fn call(self, server: &str) -> Result<i32, APIError> {
+        let request = client()
+            .post(format!("http://{}/update_preset", server))
+            .json(&self.preset)
+            .build()
+            .unwrap();
+        let res = client().execute(request).await.unwrap();
+        match res.status() {
+            StatusCode::OK => Ok(res.json::<i32>().await?),
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            x => Err(x.into()),
+        }
+    }
+}
 
+///既存のプリセットを削除します
+///
+///Parameters
+///
+///id: int 削除するプリセットのプリセットID
+///
+pub struct DeletePreset {
+    pub preset_id: i32,
+}
+impl DeletePreset {
+    pub async fn call(self, server: &str) -> Result<(), APIError> {
+        let request = client()
+            .post(format!("http://{}/delete_preset", server))
+            .query(&[("id", self.preset_id)])
+            .build()
+            .unwrap();
+        let res = client().execute(request).await.unwrap();
+        match res.status() {
+            StatusCode::NO_CONTENT => Ok(()),
+            StatusCode::UNPROCESSABLE_ENTITY => Err(APIError::Validation(res.json::<_>().await?)),
+            x => Err(x.into()),
+        }
+    }
+}
 #[derive(Debug, Clone)]
 pub struct Version;
 
