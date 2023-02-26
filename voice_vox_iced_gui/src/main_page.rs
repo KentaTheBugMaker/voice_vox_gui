@@ -45,6 +45,7 @@ pub(crate) fn build_ui<'a>(
                                     crate::character_change_button::build_character_change_button(
                                         menu,
                                         icon.clone(),
+                                        key,
                                     ),
                                 ]));
                             }
